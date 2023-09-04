@@ -1,0 +1,88 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[[project.authors]]
+name = "Dom Sekotill"
+email = "dom.sekotill@kodo.org.uk"
+
+[project]
+name = "konnect.http"
+version = "0.1.0"
+description = "Pythonic, asynchronous HTTP client"
+
+classifiers = [
+	"Development Status :: 3 - Alpha",
+	"Intended Audience :: Developers",
+	"License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+	"Topic :: Internet",
+]
+
+requires-python = "~=3.11"
+dependencies = [
+	"anyio ~=4.0",
+	"konnect.curl ~=0.1.0",
+]
+
+[tool.isort]
+force_single_line = true
+line_length = 92
+
+[tool.unimport]
+ignore-init = true
+
+
+[tool.flakeheaven]
+base = "https://code.kodo.org.uk/dom/project-templates/-/raw/main/.flakerules.toml"
+colored = true
+max_line_length = 92
+max_doc_length = 92
+
+[tool.flakeheaven.plugins]
+flake8-return = ["-R504"]
+
+[tool.flakeheaven.exceptions."examples/"]
+flake8-print = ["-*"]
+
+
+[tool.mypy]
+strict = true
+namespace_packages = true
+explicit_package_bases = true
+allow_redefinition = true
+warn_unused_configs = true
+warn_unreachable = true
+
+
+[tool.coverage.run]
+data_file = "results/coverage.db"
+branch = true
+source = ["konnect"]
+
+[tool.coverage.report]
+precision = 2
+skip_empty = true
+exclude_lines = [
+	"pragma: no-cover",
+	"if .*\\b__name__\\b",
+	"if .*\\bTYPE_CHECKING\\b",
+	"class .*(.*\\bProtocol\\b.*):",
+	"def __repr__",
+	"@overload",
+	"@(abc\\.)abstractmethod",
+]
+partial_branches = [
+	"pragma: no-branch",
+	"if .*\\b__debug__\\b",
+]
+
+[tool.coverage.json]
+output = "results/coverage.json"
+show_contexts = true
+
+[tool.coverage.xml]
+output = "results/coverage.xml"
+
+[tool.coverage.html]
+directory = "results/coverage"
+show_contexts = true

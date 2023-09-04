@@ -1,0 +1,98 @@
+default_stages: [commit]
+repos:
+
+- repo: meta
+  hooks:
+  - id: check-hooks-apply
+  - id: check-useless-excludes
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+  - id: check-added-large-files
+  - id: check-case-conflict
+  - id: check-docstring-first
+  - id: check-merge-conflict
+  - id: check-toml
+  - id: check-yaml
+  - id: debug-statements
+  - id: destroyed-symlinks
+  - id: end-of-file-fixer
+    stages: [commit, manual]
+  - id: fix-byte-order-marker
+  - id: fix-encoding-pragma
+    args: [--remove]
+  - id: mixed-line-ending
+    args: [--fix=lf]
+    stages: [commit, manual]
+  - id: trailing-whitespace
+    exclude_types: [markdown, plain-text]
+    stages: [commit, manual]
+
+- repo: https://github.com/jorisroovers/gitlint
+  rev: v0.19.1
+  hooks:
+  - id: gitlint
+
+- repo: https://code.kodo.org.uk/dom/pre-commit-hooks
+  rev: v0.6.1
+  hooks:
+  - id: check-executable-modes
+  - id: check-for-squash
+  - id: copyright-notice
+    args: [--min-size=1]
+    stages: [commit, manual]
+  - id: protect-first-parent
+
+- repo: https://github.com/pre-commit/pygrep-hooks
+  rev: v1.10.0
+  hooks:
+  - id: python-no-eval
+  - id: python-no-log-warn
+  - id: python-use-type-annotations
+
+- repo: https://github.com/hakancelikdev/unimport
+  rev: 1.0.0
+  hooks:
+  - id: unimport
+    args: [--remove]
+    additional_dependencies: [libcst >=0.4.0]
+    stages: [commit, manual]
+
+- repo: https://github.com/pycqa/isort
+  rev: 5.12.0
+  hooks:
+  - id: isort
+    types: [python]
+    stages: [commit, manual]
+
+- repo: https://github.com/asottile/add-trailing-comma
+  rev: v3.1.0
+  hooks:
+  - id: add-trailing-comma
+    args: [--py36-plus]
+    stages: [commit, manual]
+
+- repo: https://github.com/flakeheaven/flakeheaven
+  rev: 3.3.0
+  hooks:
+  - id: flakeheaven
+    additional_dependencies:
+    - flake8-bugbear
+    - flake8-docstrings
+    - flake8-print
+    - flake8-return
+    - flake8-sfs
+    - pydocstyle[toml]
+
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v1.5.1
+  hooks:
+  - id: mypy
+    args: ["--python-version=3.11", "--follow-imports=silent", "konnect"]
+    pass_filenames: false
+    language_version: python3.11
+    additional_dependencies:
+    - anyio
+    - types-konnect.curl ~=0.1.2
+    - types-pycurl

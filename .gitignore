@@ -1,0 +1,12 @@
+# Standard python boilerplate
+*.py[co]
+
+# Packages
+*.whl
+*.tar.gz
+
+# unit-testing, coverage, etc.
+/results/
+
+# pre-commit hooks
+/.*cache/
