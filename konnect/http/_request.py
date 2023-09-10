@@ -7,7 +7,6 @@ from enum import auto
 from typing import TYPE_CHECKING
 
 from konnect.curl import MILLISECONDS
-from konnect.curl import SECONDS
 from pycurl import *
 
 from .response import Response
@@ -30,8 +29,6 @@ class Request:
 	def __init__(self, session: Session, url: str):
 		self.session = session
 		self.url = url
-		self.connect_timeout = 500 @ MILLISECONDS
-		self.timeout = 3 @ SECONDS
 		self._response: Response|None = None
 		self._phase = Phase.HEADERS
 		self._data = b""
@@ -45,8 +42,8 @@ class Request:
 		handle.setopt(VERBOSE, 0)
 		handle.setopt(NOPROGRESS, 1)
 
-		handle.setopt(CONNECTTIMEOUT_MS, self.connect_timeout // MILLISECONDS)
-		handle.setopt(TIMEOUT_MS, self.timeout // MILLISECONDS)
+		handle.setopt(TIMEOUT_MS, self.session.timeout // MILLISECONDS)
+		handle.setopt(CONNECTTIMEOUT_MS, self.session.connect_timeout // MILLISECONDS)
 
 		handle.setopt(PIPEWAIT, 1)
 		handle.setopt(DEFAULT_PROTOCOL, "https")

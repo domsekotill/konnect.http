@@ -14,7 +14,10 @@ responses for users to consume.
 
 from typing import Self
 
+from konnect.curl import SECONDS
 from konnect.curl import Multi
+from konnect.curl import Time
+from konnect.curl.scalars import Quantity
 
 from ._request import Request
 from .response import Response
@@ -27,7 +30,6 @@ class Session:
 	Users *should* use a `Session` instance as an asynchronous context manager.
 	"""
 
-	# TODO: timeouts
 	# TODO: methods other than GET
 	# TODO: cookies + cookiejars
 	# TODO: proxies
@@ -35,6 +37,8 @@ class Session:
 
 	def __init__(self, *, multi: Multi|None = None) -> None:
 		self.multi = multi or Multi()
+		self.timeout: Quantity[Time] = 0 @ SECONDS
+		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 
 	async def __aenter__(self) -> Self:
 		# For future use; likely downloading PAC files if used for proxies
