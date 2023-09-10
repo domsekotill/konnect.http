@@ -35,8 +35,13 @@ class Session:
 	# TODO: proxies
 	# TODO: authorisation
 
-	def __init__(self, *, multi: Multi|None = None) -> None:
+	def __init__(
+		self, *,
+		multi: Multi|None = None,
+		request_class: type[Request] = Request,
+	) -> None:
 		self.multi = multi or Multi()
+		self.request_class = request_class
 		self.timeout: Quantity[Time] = 0 @ SECONDS
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 
@@ -51,5 +56,5 @@ class Session:
 		"""
 		Perform an HTTP GET request
 		"""
-		req = Request(self, url)
+		req = self.request_class(self, url)
 		return await req.get_response()
