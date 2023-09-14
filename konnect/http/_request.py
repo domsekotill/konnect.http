@@ -1,15 +1,20 @@
 # Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
+from __future__ import annotations
+
 from enum import Enum
 from enum import auto
+from typing import TYPE_CHECKING
 
 from konnect.curl import MILLISECONDS
 from konnect.curl import SECONDS
-from konnect.curl import Multi
 from pycurl import *
 
-from konnect.http.response import Response
-from konnect.http.response import Stream
+from .response import Response
+from .response import Stream
+
+if TYPE_CHECKING:
+	from .session import Session
 
 
 class Phase(Enum):
@@ -22,9 +27,9 @@ class Phase(Enum):
 
 class Request:
 
-	def __init__(self, handler: Multi, url: str):
+	def __init__(self, session: Session, url: str):
+		self.session = session
 		self.url = url
-		self._handler = handler
 		self.connect_timeout = 500 @ MILLISECONDS
 		self.timeout = 3 @ SECONDS
 		self._response: Response|None = None
@@ -117,13 +122,13 @@ class Request:
 	async def get_response(self) -> Response:
 		if self._phase != Phase.HEADERS:
 			raise RuntimeError("get_response() can only be called on an unstarted request")
-		resp = await self._handler.process(self)
+		resp = await self.session.multi.process(self)
 		assert isinstance(resp, Response)
 		return resp
 
 	async def get_data(self) -> bytes:
 		if self._phase != Phase.BODY_CHUNKS:
 			raise RuntimeError("get_data() can only be called after get_response()")
-		data = await self._handler.process(self)
+		data = await self.session.multi.process(self)
 		assert isinstance(data, bytes), repr(data)
 		return data

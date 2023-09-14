@@ -47,5 +47,5 @@ class Session:
 		"""
 		Perform an HTTP GET request
 		"""
-		req = Request(self.multi, url)
+		req = Request(self, url)
 		return await req.get_response()
