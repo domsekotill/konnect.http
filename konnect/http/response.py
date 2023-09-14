@@ -32,9 +32,8 @@ class Stream:
 	"""
 
 	def __init__(self, request: Request) -> None:
-		self._request = request
+		self.request: Request|None = request
 		self.buffer = b""
-		self._closed = False
 
 	async def __aiter__(self) -> AsyncIterator[bytes]:
 		try:
@@ -49,7 +48,7 @@ class Stream:
 
 		Implements `anyio.abc.AsyncResource.aclose()`
 		"""
-		self._closed = True
+		self.request = None
 
 	async def _receive(self) -> bytes:
 		# Wait until a chunk is available, and return it. Raise EndOfStream if indicated
@@ -57,10 +56,10 @@ class Stream:
 		if self.buffer:
 			data, self.buffer = self.buffer, b""
 			return data
-		if self._closed:
+		if self.request is None:
 			raise EndOfStream
-		if (data := await self._request.get_data()) == b"":
-			self._closed = True
+		if (data := await self.request.get_data()) == b"":
+			self.request = None
 			raise EndOfStream
 		return data
 
@@ -165,7 +164,7 @@ class Stream:
 		"""
 		Return `True` if the buffer is empty and an end-of-file has been indicated
 		"""
-		return not self.buffer and self._closed
+		return not self.buffer and self.request is None
 
 
 class Response:
