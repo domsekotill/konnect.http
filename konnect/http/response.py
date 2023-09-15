@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 	from ._request import Request
 
 
-class Stream:
+class ReadStream:
 	"""
 	A readable stream for response bodies
 
@@ -155,7 +155,7 @@ class Stream:
 			while size > 0:
 				chunks.append(chunk := await self.receive(size))
 				size -= len(chunk)
-			assert size == 0, "Stream.receive() returned too many bytes"
+			assert size == 0, "ReadStream.receive() returned too many bytes"
 		except EndOfStream:
 			IncompleteReadError(b''.join(chunks), size)
 		return b''.join(chunks)
@@ -172,7 +172,7 @@ class Response:
 	A class for response details, and header and body accessors
 	"""
 
-	def __init__(self, response: str, stream: Stream):
+	def __init__(self, response: str, stream: ReadStream):
 		match response.split(maxsplit=2):
 			case [version, response, status]:
 				self.version = version

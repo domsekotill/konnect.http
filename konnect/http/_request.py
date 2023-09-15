@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 from konnect.curl import MILLISECONDS
 from pycurl import *
 
+from .response import ReadStream
 from .response import Response
-from .response import Stream
 
 if TYPE_CHECKING:
 	from .session import Session
@@ -89,7 +89,7 @@ class Request:
 
 	def _process_header(self, data: bytes) -> None:
 		if data.startswith(b"HTTP/"):
-			stream = Stream(self)
+			stream = ReadStream(self)
 			self._response = Response(data.decode("ascii"), stream)
 			return
 		assert self._response is not None
