@@ -16,8 +16,17 @@ if TYPE_CHECKING:
 	from .session import Session
 
 
+class Method(Enum):
+
+	GET = auto()
+	HEAD = auto()
+	PUT = auto()
+	POST = auto()
+
+
 class Phase(Enum):
 
+	INITIAL = auto()
 	HEADERS = auto()
 	BODY_START = auto()
 	BODY_CHUNKS = auto()
@@ -26,18 +35,34 @@ class Phase(Enum):
 
 class Request:
 
-	def __init__(self, session: Session, url: str):
+	def __init__(self, session: Session, method: Method, url: str):
 		self.session = session
+		self.method = method
 		self.url = url
+		self._handle: Curl|None = None
 		self._response: Response|None = None
-		self._phase = Phase.HEADERS
+		self._phase = Phase.INITIAL
+		self._upcomplete = False
 		self._data = b""
 
 	def configure_handle(self, handle: Curl) -> None:
 		"""
 		Configure a konnect.curl.Curl handle for this request
 		"""
+		self._handle = handle
+
 		handle.setopt(URL, self.url)
+
+		match self.method:
+			case Method.HEAD:
+				handle.setopt(NOBODY, True)
+			case Method.PUT:
+				handle.setopt(UPLOAD, True)
+				handle.setopt(INFILESIZE, -1)
+				handle.setopt(READFUNCTION, self._process_input)
+			case Method.POST:
+				handle.setopt(POST, True)
+				handle.setopt(READFUNCTION, self._process_input)
 
 		handle.setopt(VERBOSE, 0)
 		handle.setopt(NOPROGRESS, 1)
@@ -84,11 +109,38 @@ class Request:
 		"""
 		Complete the transfer by returning the final stream bytes
 		"""
+		assert self._phase == Phase.BODY_CHUNKS
 		data, self._data = self._data, b""
 		return data
 
+	async def write(self, data: bytes, /) -> None:
+		"""
+		Write data to an upload request
+
+		Signal an EOF by writing b""
+		"""
+		# TODO: apply back-pressure when self._data reaches a certain length
+		# TODO: use a nicer buffer implementation than just appending
+		if data == b"":
+			self._upcomplete = True
+		elif self._data:
+			self._data += data
+		else:
+			self._data = data
+		if self._handle:
+			self._handle.pause(PAUSE_CONT)
+
+	def _process_input(self, size: int) -> bytes|int:
+		if self._data:
+			data, self._data = self._data[:size], self._data[size:]
+			return data
+		if self._upcomplete:
+			return b""
+		return READFUNC_PAUSE
+
 	def _process_header(self, data: bytes) -> None:
 		if data.startswith(b"HTTP/"):
+			self._phase = Phase.HEADERS
 			stream = ReadStream(self)
 			self._response = Response(data.decode("ascii"), stream)
 			return
@@ -117,7 +169,7 @@ class Request:
 		self._data += data
 
 	async def get_response(self) -> Response:
-		if self._phase != Phase.HEADERS:
+		if self._phase != Phase.INITIAL:
 			raise RuntimeError("get_response() can only be called on an unstarted request")
 		resp = await self.session.multi.process(self)
 		assert isinstance(resp, Response)

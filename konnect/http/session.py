@@ -19,6 +19,7 @@ from konnect.curl import Multi
 from konnect.curl import Time
 from konnect.curl.scalars import Quantity
 
+from ._request import Method
 from ._request import Request
 from .response import Response
 
@@ -52,9 +53,34 @@ class Session:
 	async def __aexit__(self, *exc_info: object) -> None:
 		return
 
+	async def head(self, url: str) -> Response:
+		"""
+		Perform an HTTP HEAD request
+		"""
+		req = self.request_class(self, Method.HEAD, url)
+		return await req.get_response()
+
 	async def get(self, url: str) -> Response:
 		"""
 		Perform an HTTP GET request
 		"""
-		req = self.request_class(self, url)
+		req = self.request_class(self, Method.GET, url)
+		return await req.get_response()
+
+	async def put(self, url: str, data: bytes) -> Response:
+		"""
+		Perform a simple HTTP PUT request with in-memory data
+		"""
+		req = self.request_class(self, Method.PUT, url)
+		await req.write(data)
+		await req.write(b"")
+		return await req.get_response()
+
+	async def post(self, url: str, data: bytes) -> Response:
+		"""
+		Perform a simple HTTP POST request with in-memory data
+		"""
+		req = self.request_class(self, Method.POST, url)
+		await req.write(data)
+		await req.write(b"")
 		return await req.get_response()
