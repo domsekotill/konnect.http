@@ -1,5 +1,15 @@
 # Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
+"""
+Module providing a `konnect.curl.Request` implementation for HTTP requests
+
+Using the `Request` class directly allows for finer-grained control of a request, including
+asynchronously sending chunked data.
+
+For many uses, there is a simple interface supplied by the `Session` class which does not
+require users to interact directly with the classes supplied in this module.
+"""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -16,7 +26,16 @@ if TYPE_CHECKING:
 	from .session import Session
 
 
+__all__ = [
+	"Method",
+	"Request",
+]
+
+
 class Method(Enum):
+	"""
+	HTTP methods supported by konnect.http
+	"""
 
 	GET = auto()
 	HEAD = auto()
@@ -34,6 +53,9 @@ class Phase(Enum):
 
 
 class Request:
+	"""
+	Class representing and managing an HTTP request through `konnect.curl`
+	"""
 
 	def __init__(self, session: Session, method: Method, url: str):
 		self.session = session
@@ -48,6 +70,9 @@ class Request:
 	def configure_handle(self, handle: Curl) -> None:
 		"""
 		Configure a konnect.curl.Curl handle for this request
+
+		This is part of the `konnect.curl.Request` interface and is not intended to be
+		called by users.
 		"""
 		self._handle = handle
 
@@ -82,6 +107,9 @@ class Request:
 	def has_response(self) -> bool:
 		"""
 		Return whether calling `response()` will return a value or raise `LookupError`
+
+		This is part of the `konnect.curl.Request` interface and is not intended to be
+		called by users.
 		"""
 		match self._phase:
 			case Phase.BODY_START:
@@ -95,6 +123,10 @@ class Request:
 		Return a waiting response or raise `LookupError` if there is none
 
 		See `has_response()` for checking for waiting responses.
+
+		This is part of the `konnect.curl.Request` interface and is not intended to be
+		called by users.  Behaviour will be undefined if users call this method during
+		a transfer.
 		"""
 		if self._phase == Phase.BODY_START:
 			self._phase = Phase.BODY_CHUNKS
@@ -108,6 +140,10 @@ class Request:
 	def completed(self) -> bytes:
 		"""
 		Complete the transfer by returning the final stream bytes
+
+		This is part of the `konnect.curl.Request` interface and is not intended to be
+		called by users.  Behaviour will be undefined if users call this method during
+		a transfer.
 		"""
 		assert self._phase == Phase.BODY_CHUNKS
 		data, self._data = self._data, b""
@@ -169,6 +205,9 @@ class Request:
 		self._data += data
 
 	async def get_response(self) -> Response:
+		"""
+		Progress the request far enough to create a `Response` object and return it
+		"""
 		if self._phase != Phase.INITIAL:
 			raise RuntimeError("get_response() can only be called on an unstarted request")
 		resp = await self.session.multi.process(self)
@@ -176,6 +215,9 @@ class Request:
 		return resp
 
 	async def get_data(self) -> bytes:
+		"""
+		Return chunks of received data from the body of the response to the request
+		"""
 		if self._phase != Phase.BODY_CHUNKS:
 			raise RuntimeError("get_data() can only be called after get_response()")
 		data = await self.session.multi.process(self)

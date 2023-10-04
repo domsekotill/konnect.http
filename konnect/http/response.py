@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from anyio import EndOfStream
 
 if TYPE_CHECKING:
-	from ._request import Request
+	from .request import Request
 
 
 class ReadStream:

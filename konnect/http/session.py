@@ -19,8 +19,8 @@ from konnect.curl import Multi
 from konnect.curl import Time
 from konnect.curl.scalars import Quantity
 
-from ._request import Method
-from ._request import Request
+from .request import Method
+from .request import Request
 from .response import Response
 
 
