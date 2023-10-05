@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from anyio import EndOfStream
 
 if TYPE_CHECKING:
-	from .request import Request
+	from .request import CurlRequest
 
 
 class ReadStream:
@@ -31,8 +31,8 @@ class ReadStream:
 	require either of those interfaces.
 	"""
 
-	def __init__(self, request: Request) -> None:
-		self.request: Request|None = request
+	def __init__(self, request: CurlRequest) -> None:
+		self.request: CurlRequest|None = request
 		self.buffer = b""
 
 	async def __aiter__(self) -> AsyncIterator[bytes]:

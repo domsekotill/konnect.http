@@ -54,7 +54,32 @@ class Phase(Enum):
 
 class Request:
 	"""
-	Class representing and managing an HTTP request through `konnect.curl`
+	This class provides the user-callable API for requests
+	"""
+
+	def __init__(self, session: Session, method: Method, url: str):
+		self._request = CurlRequest(session, method, url)
+
+	async def write(self, data: bytes, /) -> None:
+		"""
+		Write data to an upload request
+
+		Signal an EOF by writing b""
+		"""
+		await self._request.write(data)
+
+	async def get_response(self) -> Response:
+		"""
+		Progress the request far enough to create a `Response` object and return it
+		"""
+		return await self._request.get_response()
+
+
+class CurlRequest:
+	"""
+	This class provides the `konnect.curl.Request` interface, callbacks and internal API
+
+	It is not intended to be used directly by users.
 	"""
 
 	def __init__(self, session: Session, method: Method, url: str):
@@ -71,8 +96,7 @@ class Request:
 		"""
 		Configure a konnect.curl.Curl handle for this request
 
-		This is part of the `konnect.curl.Request` interface and is not intended to be
-		called by users.
+		This is part of the `konnect.curl.Request` interface.
 		"""
 		self._handle = handle
 
@@ -108,8 +132,7 @@ class Request:
 		"""
 		Return whether calling `response()` will return a value or raise `LookupError`
 
-		This is part of the `konnect.curl.Request` interface and is not intended to be
-		called by users.
+		This is part of the `konnect.curl.Request` interface.
 		"""
 		match self._phase:
 			case Phase.BODY_START:
@@ -124,9 +147,7 @@ class Request:
 
 		See `has_response()` for checking for waiting responses.
 
-		This is part of the `konnect.curl.Request` interface and is not intended to be
-		called by users.  Behaviour will be undefined if users call this method during
-		a transfer.
+		This is part of the `konnect.curl.Request` interface.
 		"""
 		if self._phase == Phase.BODY_START:
 			self._phase = Phase.BODY_CHUNKS
@@ -141,9 +162,7 @@ class Request:
 		"""
 		Complete the transfer by returning the final stream bytes
 
-		This is part of the `konnect.curl.Request` interface and is not intended to be
-		called by users.  Behaviour will be undefined if users call this method during
-		a transfer.
+		This is part of the `konnect.curl.Request` interface.
 		"""
 		assert self._phase == Phase.BODY_CHUNKS
 		data, self._data = self._data, b""
