@@ -136,7 +136,8 @@ class CurlRequest:
 		"""
 		match self._phase:
 			case Phase.BODY_START:
-				return True
+				assert self._response is not None
+				return self._response.response >= 200
 			case Phase.BODY_CHUNKS:
 				return self._data != b""
 		return False
@@ -152,6 +153,8 @@ class CurlRequest:
 		if self._phase == Phase.BODY_START:
 			self._phase = Phase.BODY_CHUNKS
 			assert self._response is not None
+			if self._response.response < 200:
+				raise LookupError
 			return self._response
 		if self._phase != Phase.BODY_CHUNKS or not self._data:
 			raise LookupError
