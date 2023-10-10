@@ -177,7 +177,7 @@ class Response:
 			case [version, response, status]:
 				self.version = version
 				self.response = HTTPStatus(int(response))
-				self.status = status
+				self.status = status.strip()
 			case [version, response]:
 				self.version = version
 				self.response = HTTPStatus(int(response))
