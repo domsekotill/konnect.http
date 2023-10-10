@@ -33,7 +33,7 @@ class ReadStream:
 
 	def __init__(self, request: CurlRequest) -> None:
 		self.request: CurlRequest|None = request
-		self.buffer = b""
+		self._buffer = b""
 
 	async def __aiter__(self) -> AsyncIterator[bytes]:
 		try:
@@ -53,8 +53,8 @@ class ReadStream:
 	async def _receive(self) -> bytes:
 		# Wait until a chunk is available, and return it. Raise EndOfStream if indicated
 		# with an empty byte chunk.
-		if self.buffer:
-			data, self.buffer = self.buffer, b""
+		if self._buffer:
+			data, self._buffer = self._buffer, b""
 			return data
 		if self.request is None:
 			raise EndOfStream
@@ -71,7 +71,7 @@ class ReadStream:
 		"""
 		data = await self._receive()
 		if max_bytes >= 0:
-			data, self.buffer = data[:max_bytes], data[max_bytes:]
+			data, self._buffer = data[:max_bytes], data[max_bytes:]
 		return data
 
 	async def readuntil(self, separator: bytes = b'\n') -> bytes:
@@ -95,7 +95,7 @@ class ReadStream:
 			if (split := data.find(separator)) >= 0:
 				split += len(separator)
 				assert len(data) >= split
-				data, self.buffer = data[:split], data[split:]
+				data, self._buffer = data[:split], data[split:]
 			chunks.append(data)
 			length += len(data)
 		return b''.join(chunks)
@@ -141,7 +141,7 @@ class ReadStream:
 		except IncompleteReadError as exc:
 			return exc.partial
 		except LimitOverrunError as exc:
-			self.buffer = b""
+			self._buffer = b""
 			raise ValueError(exc.args[0])
 
 	async def readexactly(self, size: int, /) -> bytes:
@@ -164,7 +164,7 @@ class ReadStream:
 		"""
 		Return `True` if the buffer is empty and an end-of-file has been indicated
 		"""
-		return not self.buffer and self.request is None
+		return not self._buffer and self.request is None
 
 
 class Response:
