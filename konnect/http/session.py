@@ -20,6 +20,7 @@ from konnect.curl import Multi
 from konnect.curl import Time
 from konnect.curl.scalars import Quantity
 
+from .authenticators import AuthHandler
 from .exceptions import UnsupportedSchemeError
 from .request import Method
 from .request import Request
@@ -37,7 +38,6 @@ class Session:
 
 	# TODO: cookies + cookiejars
 	# TODO: proxies
-	# TODO: authorisation
 
 	def __init__(
 		self, *,
@@ -49,6 +49,7 @@ class Session:
 		self.timeout: Quantity[Time] = 0 @ SECONDS
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 		self.transports = dict[ServiceIdentifier, TransportInfo]()
+		self.auth = dict[ServiceIdentifier, AuthHandler]()
 
 	async def __aenter__(self) -> Self:
 		# For future use; likely downloading PAC files if used for proxies
@@ -128,3 +129,27 @@ class Session:
 		if parts.scheme not in ("http", "https"):
 			raise UnsupportedSchemeError(url)
 		del self.transports[parts.scheme, parts.netloc]  # type: ignore[arg-type]
+
+	def add_authentication(self, url: str, authenticator: AuthHandler) -> None:
+		"""
+		Add an authentication handler to use when accessing URLs under the given URL base
+
+		The URL base should be a schema and 'hostname[:port]' only,
+		e.g. `"http://example.com"`; anything else will be ignored but may have an effect in
+		future releases.
+		"""
+		parts = urlparse(url)
+		if parts.scheme not in ("http", "https"):
+			raise UnsupportedSchemeError(url)
+		self.auth[parts.scheme, parts.netloc] = authenticator  # type: ignore[index]
+
+	def remove_authentication(self, url: str) -> None:
+		"""
+		Remove an authentication handler for a URL base
+
+		See `add_authentication()` for the format of the URL base
+		"""
+		parts = urlparse(url)
+		if parts.scheme not in ("http", "https"):
+			raise UnsupportedSchemeError(url)
+		del self.auth[parts.scheme, parts.netloc]  # type: ignore[arg-type]

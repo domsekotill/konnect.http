@@ -33,6 +33,7 @@ from .response import ReadStream
 from .response import Response
 
 if TYPE_CHECKING:
+	from .authenticators import AuthHandler
 	from .session import Session
 
 ServiceIdentifier: TypeAlias = tuple[Literal["http", "https"], str]
@@ -276,8 +277,13 @@ class CurlRequest:
 		"""
 		if self._phase != Phase.INITIAL:
 			raise RuntimeError("get_response() can only be called on an unstarted request")
+		auth = get_authenticator(self.session.auth, self.url)
+		if auth is not None:
+			await auth.prepare_request(self)
 		resp = await self.session.multi.process(self)
 		assert isinstance(resp, Response)
+		if auth is not None:
+			resp = await auth.process_response(self, resp)
 		return resp
 
 	async def get_data(self) -> bytes:
@@ -312,3 +318,21 @@ def get_transport(
 		return transports[scheme, parts.netloc]
 	except KeyError:
 		return parts.hostname, parts.port or default_port
+
+
+def get_authenticator(
+	authenticators: Mapping[ServiceIdentifier, AuthHandler],
+	url: str,
+) -> AuthHandler|None:
+	"""
+	For a given http:// or https:// URL, return any `AuthHandler` associated with it
+	"""
+	parts = urlparse(url)
+	if parts.hostname is None:
+		raise ValueError("An absolute URL is required")
+	if parts.scheme not in ("http", "https"):
+		raise UnsupportedSchemeError(url)
+	try:
+		return authenticators[parts.scheme, parts.netloc]  # type: ignore[index]
+	except KeyError:
+		return None
