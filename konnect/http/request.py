@@ -58,6 +58,8 @@ class Method(Enum):
 	HEAD = auto()
 	PUT = auto()
 	POST = auto()
+	PATCH = auto()
+	DELETE = auto()
 
 
 class Transport(Flag):
@@ -139,6 +141,13 @@ class CurlRequest:
 			case Method.POST:
 				handle.setopt(POST, True)
 				handle.setopt(READFUNCTION, self._process_input)
+			case Method.PATCH:
+				handle.setopt(CUSTOMREQUEST, "PATCH")
+				handle.setopt(UPLOAD, True)
+				handle.setopt(INFILESIZE, -1)
+				handle.setopt(READFUNCTION, self._process_input)
+			case Method.DELETE:
+				handle.setopt(CUSTOMREQUEST, "DELETE")
 
 		match get_transport(self.session.transports, self.url):
 			case Path() as path:

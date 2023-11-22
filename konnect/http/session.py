@@ -35,7 +35,6 @@ class Session:
 	Users *should* use a `Session` instance as an asynchronous context manager.
 	"""
 
-	# TODO: methods other than GET
 	# TODO: cookies + cookiejars
 	# TODO: proxies
 	# TODO: authorisation
@@ -88,6 +87,22 @@ class Session:
 		req = self.request_class(self, Method.POST, url)
 		await req.write(data)
 		await req.write(b"")
+		return await req.get_response()
+
+	async def patch(self, url: str, data: bytes) -> Response:
+		"""
+		Perform a simple HTTP PATCH request with in-memory data
+		"""
+		req = self.request_class(self, Method.PATCH, url)
+		await req.write(data)
+		await req.write(b"")
+		return await req.get_response()
+
+	async def delete(self, url: str) -> Response:
+		"""
+		Perform an HTTP DELETE request
+		"""
+		req = self.request_class(self, Method.DELETE, url)
 		return await req.get_response()
 
 	def add_redirect(self, url: str, target: TransportInfo) -> None:
