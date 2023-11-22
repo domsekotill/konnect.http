@@ -13,14 +13,18 @@ responses for users to consume.
 """
 
 from typing import Self
+from urllib.parse import urlparse
 
 from konnect.curl import SECONDS
 from konnect.curl import Multi
 from konnect.curl import Time
 from konnect.curl.scalars import Quantity
 
+from .exceptions import UnsupportedSchemeError
 from .request import Method
 from .request import Request
+from .request import ServiceIdentifier
+from .request import TransportInfo
 from .response import Response
 
 
@@ -45,6 +49,7 @@ class Session:
 		self.request_class = request_class
 		self.timeout: Quantity[Time] = 0 @ SECONDS
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
+		self.transports = dict[ServiceIdentifier, TransportInfo]()
 
 	async def __aenter__(self) -> Self:
 		# For future use; likely downloading PAC files if used for proxies
@@ -84,3 +89,27 @@ class Session:
 		await req.write(data)
 		await req.write(b"")
 		return await req.get_response()
+
+	def add_redirect(self, url: str, target: TransportInfo) -> None:
+		"""
+		Add a redirect for a URL base to a target address/port
+
+		The URL base should be a schema and 'hostname[:port]' only,
+		e.g. `"http://example.com"`; anything else will be ignored but may have an effect in
+		future releases.
+		"""
+		parts = urlparse(url)
+		if parts.scheme not in ("http", "https"):
+			raise UnsupportedSchemeError(url)
+		self.transports[parts.scheme, parts.netloc] = target  # type: ignore[index]
+
+	def remove_redirect(self, url: str) -> None:
+		"""
+		Remove a redirect for a URL base
+
+		See `add_redirect()` for the format of the URL base.
+		"""
+		parts = urlparse(url)
+		if parts.scheme not in ("http", "https"):
+			raise UnsupportedSchemeError(url)
+		del self.transports[parts.scheme, parts.netloc]  # type: ignore[arg-type]

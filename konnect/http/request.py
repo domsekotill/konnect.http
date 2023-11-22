@@ -13,21 +13,38 @@ require users to interact directly with the classes supplied in this module.
 from __future__ import annotations
 
 from enum import Enum
+from enum import Flag
 from enum import auto
+from ipaddress import IPv4Address
+from ipaddress import IPv6Address
+from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
+from typing import Mapping
+from typing import TypeAlias
+from typing import Union
+from urllib.parse import urlparse
 
 from konnect.curl import MILLISECONDS
 from pycurl import *
 
+from .exceptions import UnsupportedSchemeError
 from .response import ReadStream
 from .response import Response
 
 if TYPE_CHECKING:
 	from .session import Session
 
+ServiceIdentifier: TypeAlias = tuple[Literal["http", "https"], str]
+TransportInfo: TypeAlias = Union[
+	tuple[IPv4Address | IPv6Address | str, int],
+	Path,
+]
+
 
 __all__ = [
 	"Method",
+	"Transport",
 	"Request",
 ]
 
@@ -41,6 +58,16 @@ class Method(Enum):
 	HEAD = auto()
 	PUT = auto()
 	POST = auto()
+
+
+class Transport(Flag):
+	"""
+	Transport layer types
+	"""
+
+	TCP = auto()
+	UNIX = auto()
+	TLS = auto()
 
 
 class Phase(Enum):
@@ -112,6 +139,14 @@ class CurlRequest:
 			case Method.POST:
 				handle.setopt(POST, True)
 				handle.setopt(READFUNCTION, self._process_input)
+
+		match get_transport(self.session.transports, self.url):
+			case Path() as path:
+				handle.setopt(UNIX_SOCKET_PATH, path.as_posix())
+			case [(IPv4Address() | IPv6Address() | str()) as host, int(port)]:
+				handle.setopt(CONNECT_TO, [f"::{host}:{port}"])
+			case transport:
+				raise TypeError(f"Unknown transport: {transport!r}")
 
 		handle.setopt(VERBOSE, 0)
 		handle.setopt(NOPROGRESS, 1)
@@ -245,3 +280,26 @@ class CurlRequest:
 		data = await self.session.multi.process(self)
 		assert isinstance(data, bytes), repr(data)
 		return data
+
+
+def get_transport(
+	transports: Mapping[ServiceIdentifier, TransportInfo],
+	url: str,
+) -> TransportInfo:
+	"""
+	For a given http:// or https:// URL, return suitable transport layer information
+	"""
+	parts = urlparse(url)
+	if parts.hostname is None:
+		raise ValueError("An absolute URL is required")
+	match parts.scheme:
+		case "https" as scheme:
+			default_port = 443
+		case "http" as scheme:
+			default_port = 80
+		case _:
+			raise UnsupportedSchemeError(url)
+	try:
+		return transports[scheme, parts.netloc]
+	except KeyError:
+		return parts.hostname, parts.port or default_port
