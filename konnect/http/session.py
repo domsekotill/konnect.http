@@ -10,6 +10,10 @@ responses for users to consume.
 > **Note:**
 > Unlike the `requests` package, there are no top-level functions for generating requests
 > and producing responses, as they would have to be synchronous.
+
+The `Session` class has several request methods which return `Response` objects.  These are
+conveniences for creating `Request` objects, writing data to them (if appropriate for the
+HTTP method), and awaiting a response from them.
 """
 
 from typing import Self
@@ -35,6 +39,15 @@ class Session:
 	A shared request state class
 
 	Users *should* use a `Session` instance as an asynchronous context manager.
+
+	Users can provide a shared `Multi` object to allow connections to be shared between
+	sessions (or even different protocol clients), otherwise a new `Multi` object is
+	created; either option is safe in a single threaded environment but `Multi` objects
+	must not be shared between threads.
+
+	Users may also inject a subclass of `Request` to be used by the various methods that
+	return `Response` objects; the return object is the result of calling
+	`Request.get_response()`.
 	"""
 
 	# TODO: cookiejars
