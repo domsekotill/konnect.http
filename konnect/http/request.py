@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 from konnect.curl import MILLISECONDS
 from pycurl import *
 
+from .cookies import check_cookie
 from .exceptions import UnsupportedSchemeError
 from .response import ReadStream
 from .response import Response
@@ -157,6 +158,8 @@ class CurlRequest:
 				handle.setopt(CONNECT_TO, [f"::{host}:{port}"])
 			case transport:
 				raise TypeError(f"Unknown transport: {transport!r}")
+
+		handle.setopt(COOKIE, self.get_cookies())
 
 		handle.setopt(VERBOSE, 0)
 		handle.setopt(NOPROGRESS, 1)
@@ -295,6 +298,16 @@ class CurlRequest:
 		data = await self.session.multi.process(self)
 		assert isinstance(data, bytes), repr(data)
 		return data
+
+	def get_cookies(self) -> bytes:
+		"""
+		Return the encoded cookie values to be sent with the request
+		"""
+		return b"; ".join(
+			bytes(cookie)
+			for cookie in self.session.cookies
+			if check_cookie(cookie, self.url)
+		)
 
 
 def get_transport(

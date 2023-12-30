@@ -21,6 +21,7 @@ from konnect.curl import Time
 from konnect.curl.scalars import Quantity
 
 from .authenticators import AuthHandler
+from .cookies import Cookie
 from .exceptions import UnsupportedSchemeError
 from .request import Method
 from .request import Request
@@ -36,7 +37,7 @@ class Session:
 	Users *should* use a `Session` instance as an asynchronous context manager.
 	"""
 
-	# TODO: cookies + cookiejars
+	# TODO: cookiejars
 	# TODO: proxies
 
 	def __init__(
@@ -50,6 +51,7 @@ class Session:
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 		self.transports = dict[ServiceIdentifier, TransportInfo]()
 		self.auth = dict[ServiceIdentifier, AuthHandler]()
+		self.cookies = set[Cookie]()
 
 	async def __aenter__(self) -> Self:
 		# For future use; likely downloading PAC files if used for proxies
@@ -153,3 +155,13 @@ class Session:
 		if parts.scheme not in ("http", "https"):
 			raise UnsupportedSchemeError(url)
 		del self.auth[parts.scheme, parts.netloc]  # type: ignore[arg-type]
+
+	def add_cookie(self, url: str, name: str, value: bytes) -> None:
+		"""
+		Add a cookie for the given URL base
+		"""
+		parts = urlparse(url)
+		if parts.hostname is None:
+			raise ValueError(f"a hostname is required in URL: {url}")
+		cookie = Cookie(name, value, None, parts.hostname, parts.path, secure=(parts.scheme == "https"))
+		self.cookies.add(cookie)
