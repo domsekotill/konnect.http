@@ -1,4 +1,4 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Response classes for HTTP requests
@@ -176,16 +176,16 @@ class Response:
 		match response.split(maxsplit=2):
 			case [version, response, status]:
 				self.version = version
-				self.response = HTTPStatus(int(response))
+				self.code = HTTPStatus(int(response))
 				self.status = status.strip()
 			case [version, response]:
 				self.version = version
-				self.response = HTTPStatus(int(response))
-				self.status = self.response.phrase
+				self.code = HTTPStatus(int(response))
+				self.status = self.code.phrase
 			case _:
 				raise ValueError
 		self.stream = stream
 		self.headers = list[tuple[str, bytes]]()
 
 	def __repr__(self) -> str:
-		return f"<Response {self.response} {self.status}>"
+		return f"<Response {self.code} {self.status}>"

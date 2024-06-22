@@ -1,4 +1,4 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Module providing a `konnect.curl.Request` implementation for HTTP requests
@@ -185,7 +185,7 @@ class CurlRequest:
 		match self._phase:
 			case Phase.BODY_START:
 				assert self._response is not None
-				return self._response.response >= 200
+				return self._response.code >= 200
 			case Phase.BODY_CHUNKS:
 				return self._data != b""
 		return False
@@ -201,7 +201,7 @@ class CurlRequest:
 		if self._phase == Phase.BODY_START:
 			self._phase = Phase.BODY_CHUNKS
 			assert self._response is not None
-			if self._response.response < 200:
+			if self._response.code < 200:
 				raise LookupError
 			return self._response
 		if self._phase != Phase.BODY_CHUNKS or not self._data:
