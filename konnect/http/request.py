@@ -91,6 +91,30 @@ class Request:
 	def __init__(self, session: Session, method: Method, url: str):
 		self._request = CurlRequest(session, method, url)
 
+	def __repr__(self) -> str:
+		return f"<Request {self._request.method.name} {self._request.url}>"
+
+	@property
+	def session(self) -> Session:
+		"""
+		Wrap the underlying request's session attribute
+		"""
+		return self._request.session
+
+	@property
+	def method(self) -> Method:
+		"""
+		Wrap the underlying request's method attribute
+		"""
+		return self._request.method
+
+	@property
+	def url(self) -> str:
+		"""
+		Wrap the underlying request's url attribute
+		"""
+		return self._request.url
+
 	async def write(self, data: bytes, /) -> None:
 		"""
 		Write data to an upload request
