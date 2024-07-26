@@ -8,7 +8,7 @@ email = "dom.sekotill@kodo.org.uk"
 
 [project]
 name = "konnect.http"
-version = "0.1.0"
+version = "0.1.1"
 description = "Pythonic, asynchronous HTTP client"
 
 classifiers = [
