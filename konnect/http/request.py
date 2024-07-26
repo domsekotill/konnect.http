@@ -200,6 +200,9 @@ class CurlRequest:
 		handle.setopt(HEADERFUNCTION, self._process_header)
 		handle.setopt(WRITEFUNCTION, self._process_body)
 
+		if self.session.user_agent is not None:
+			handle.setopt(USERAGENT, self.session.user_agent)
+
 	def has_response(self) -> bool:
 		"""
 		Return whether calling `response()` will return a value or raise `LookupError`

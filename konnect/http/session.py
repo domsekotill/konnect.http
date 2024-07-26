@@ -1,4 +1,4 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Sessions are the primary entrypoint for users
@@ -65,6 +65,7 @@ class Session:
 		self.transports = dict[ServiceIdentifier, TransportInfo]()
 		self.auth = dict[ServiceIdentifier, AuthHandler]()
 		self.cookies = set[Cookie]()
+		self.user_agent: str|None = None
 
 	async def __aenter__(self) -> Self:
 		# For future use; likely downloading PAC files if used for proxies
