@@ -16,6 +16,7 @@ conveniences for creating `Request` objects, writing data to them (if appropriat
 HTTP method), and awaiting a response from them.
 """
 
+from copy import copy
 from typing import Self
 from urllib.parse import urlparse
 
@@ -73,6 +74,12 @@ class Session:
 
 	async def __aexit__(self, *exc_info: object) -> None:
 		return
+
+	def clone(self) -> Self:
+		"""
+		Return a cloned `Session` object that can be independently modified
+		"""
+		return copy(self)
 
 	async def head(self, url: str) -> Response:
 		"""
