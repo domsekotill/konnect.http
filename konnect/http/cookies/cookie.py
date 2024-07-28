@@ -1,4 +1,4 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Module containing the core Cookie class and checking functions
@@ -51,25 +51,26 @@ class Cookie:
 		"""
 		self = cls("", b"", None, domain, path)
 		for token in tokenise(header):
-			if token[0] is TokenType.NAME:
-				self.name = token[1]
-			elif token[0] is TokenType.VALUE:
-				self.value = token[1]
-			elif token[0] is TokenType.DOMAIN:
-				# TODO: check cookie domain allowed
-				self.domain = token[1]
-				self.exactdomain = False
-			elif token[0] is TokenType.PATH:
-				# TODO: check cookie path allowed
-				self.path = token[1]
-			elif token[0] is TokenType.EXPIRES:
-				self.expires = token[1]
-			elif token[0] is TokenType.MAX_AGE:
-				self.expires = DateTime.now() + token[1]
-			elif token[0] is TokenType.SECURE:
-				self.secure = token[1]
-			elif token[0] is TokenType.HTTP_ONLY:
-				self.httponly = token[1]
+			match token:
+				case [TokenType.NAME, str(name)]:
+					self.name = name
+				case [TokenType.VALUE, bytes(value)]:
+					self.value = value
+				case [TokenType.DOMAIN, str(domain)]:
+					self.domain = domain
+					self.exactdomain = False
+				case [TokenType.PATH, str(path)]:
+					self.path = path
+				case [TokenType.EXPIRES, DateTime() as expires]:
+					self.expires = expires
+				case [TokenType.MAX_AGE, TimeDelta() as max_age]:
+					self.expires = DateTime.now() + max_age
+				case [TokenType.SECURE, bool(secure)]:
+					self.secure = secure
+				case [TokenType.HTTP_ONLY, bool(http_only)]:
+					self.httponly = http_only
+				case _:
+					assert None, f"unexpected token {token}"
 		assert self.name != ""
 		return self
 
