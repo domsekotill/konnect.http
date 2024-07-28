@@ -10,8 +10,12 @@ For many uses, there is a simple interface supplied by the `Session` class which
 require users to interact directly with the classes supplied in this module.
 """
 
+# mypy: disable-error-code="no-untyped-call"
+
 from __future__ import annotations
 
+from collections.abc import Awaitable
+from collections.abc import Callable
 from enum import Enum
 from enum import Flag
 from enum import auto
@@ -21,6 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
 from typing import Mapping
+from typing import Self
 from typing import TypeAlias
 from typing import Union
 from urllib.parse import urlparse
@@ -115,6 +120,12 @@ class Request:
 		"""
 		return self._request.url
 
+	def body(self) -> BodySendStream:
+		"""
+		Return a writable object that can be used as an async context manager
+		"""
+		return BodySendStream(self._request.write)
+
 	async def write(self, data: bytes, /) -> None:
 		"""
 		Write data to an upload request
@@ -128,6 +139,41 @@ class Request:
 		Progress the request far enough to create a `Response` object and return it
 		"""
 		return await self._request.get_response()
+
+
+class BodySendStream:
+	"""
+	Provides an interface for writing to request bodies
+
+	Once a body has been completely written it must be finalised either by calling `close()`
+	or by exiting the context created by using instances of this class as (async) context
+	managers.
+	"""
+
+	def __init__(self, writefn: Callable[[bytes], Awaitable[None]]):
+		self._write = writefn
+
+	async def __aenter__(self) -> Self:
+		return self
+
+	async def __aexit__(self, exc_type: type[Exception]|None, *excinfo: object) -> None:
+		if exc_type is None:
+			await self._write(b"")
+
+	async def aclose(self) -> None:
+		"""
+		Finalise the body once complete
+		"""
+		await self._write(b"")
+
+	async def send(self, data: bytes, /) -> None:
+		"""
+		Write body data to an upload request
+		"""
+		# Unlike CurlRequest.write, passing an empty string is a no-op
+		if not data:
+			return
+		await self._write(data)
 
 
 class CurlRequest:
