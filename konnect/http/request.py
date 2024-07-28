@@ -68,6 +68,12 @@ class Method(Enum):
 	PATCH = auto()
 	DELETE = auto()
 
+	def is_upload(self) -> bool:
+		"""
+		Return whether a method allows an upload body
+		"""
+		return self in (Method.PUT, Method.POST, Method.PATCH)
+
 
 class Transport(Flag):
 	"""
@@ -124,6 +130,8 @@ class Request:
 		"""
 		Return a writable object that can be used as an async context manager
 		"""
+		if not self._request.method.is_upload():
+			raise RuntimeError(f"cannot write to request method {self._request.method}")
 		return BodySendStream(self._request.write)
 
 	async def write(self, data: bytes, /) -> None:
@@ -132,6 +140,8 @@ class Request:
 
 		Signal an EOF by writing b""
 		"""
+		if not self._request.method.is_upload():
+			raise RuntimeError(f"cannot write to request method {self._request.method}")
 		await self._request.write(data)
 
 	async def get_response(self) -> Response:
