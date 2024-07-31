@@ -88,10 +88,10 @@ class Transport(Flag):
 class Phase(Enum):
 
 	INITIAL = auto()
-	HEADERS = auto()
-	BODY_START = auto()
-	BODY_CHUNKS = auto()
-	TRAILERS = auto()
+	READ_HEADERS = auto()
+	READ_BODY_AWAIT = auto()
+	READ_BODY = auto()
+	READ_TRAILERS = auto()
 
 
 class Request:
@@ -266,10 +266,10 @@ class CurlRequest:
 		This is part of the `konnect.curl.Request` interface.
 		"""
 		match self._phase:
-			case Phase.BODY_START:
+			case Phase.READ_BODY_AWAIT:
 				assert self._response is not None
 				return self._response.code >= 200
-			case Phase.BODY_CHUNKS:
+			case Phase.READ_BODY:
 				return self._data != b""
 		return False
 
@@ -281,13 +281,13 @@ class CurlRequest:
 
 		This is part of the `konnect.curl.Request` interface.
 		"""
-		if self._phase == Phase.BODY_START:
-			self._phase = Phase.BODY_CHUNKS
+		if self._phase == Phase.READ_BODY_AWAIT:
+			self._phase = Phase.READ_BODY
 			assert self._response is not None
 			if self._response.code < 200:
 				raise LookupError
 			return self._response
-		if self._phase != Phase.BODY_CHUNKS or not self._data:
+		if self._phase != Phase.READ_BODY or not self._data:
 			raise LookupError
 		data, self._data = self._data, b""
 		return data
@@ -298,7 +298,7 @@ class CurlRequest:
 
 		This is part of the `konnect.curl.Request` interface.
 		"""
-		assert self._phase == Phase.BODY_CHUNKS
+		assert self._phase == Phase.READ_BODY
 		data, self._data = self._data, b""
 		return data
 
@@ -329,16 +329,16 @@ class CurlRequest:
 
 	def _process_header(self, data: bytes) -> None:
 		if data.startswith(b"HTTP/"):
-			self._phase = Phase.HEADERS
+			self._phase = Phase.READ_HEADERS
 			stream = ReadStream(self)
 			self._response = Response(data.decode("ascii"), stream)
 			return
 		assert self._response is not None
 		if data == b"\r\n":
-			self._phase = Phase.BODY_START
+			self._phase = Phase.READ_BODY_AWAIT
 			return
-		if self._phase not in (Phase.HEADERS, Phase.TRAILERS):
-			self._phase = Phase.TRAILERS
+		if self._phase not in (Phase.READ_HEADERS, Phase.READ_TRAILERS):
+			self._phase = Phase.READ_TRAILERS
 		self._response.headers.append(self._split_field(data))
 
 	def _split_field(self, field: bytes) -> tuple[str, bytes]:
@@ -376,7 +376,7 @@ class CurlRequest:
 		"""
 		Return chunks of received data from the body of the response to the request
 		"""
-		if self._phase != Phase.BODY_CHUNKS:
+		if self._phase != Phase.READ_BODY:
 			raise RuntimeError("get_data() can only be called after get_response()")
 		data = await self.session.multi.process(self)
 		assert isinstance(data, bytes), repr(data)
