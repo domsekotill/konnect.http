@@ -100,8 +100,8 @@ class Session:
 		Perform a simple HTTP PUT request with in-memory data
 		"""
 		req = self.request_class(self, Method.PUT, url)
-		await req.write(data)
-		await req.write(b"")
+		async with await req.body() as body:
+			await body.send(data)
 		return await req.get_response()
 
 	async def post(self, url: str, data: bytes) -> Response:
@@ -109,8 +109,8 @@ class Session:
 		Perform a simple HTTP POST request with in-memory data
 		"""
 		req = self.request_class(self, Method.POST, url)
-		await req.write(data)
-		await req.write(b"")
+		async with await req.body() as body:
+			await body.send(data)
 		return await req.get_response()
 
 	async def patch(self, url: str, data: bytes) -> Response:
@@ -118,8 +118,8 @@ class Session:
 		Perform a simple HTTP PATCH request with in-memory data
 		"""
 		req = self.request_class(self, Method.PATCH, url)
-		await req.write(data)
-		await req.write(b"")
+		async with await req.body() as body:
+			await body.send(data)
 		return await req.get_response()
 
 	async def delete(self, url: str) -> Response:

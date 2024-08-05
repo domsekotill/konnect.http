@@ -32,6 +32,7 @@ from urllib.parse import urlparse
 
 from konnect.curl import MILLISECONDS
 from pycurl import *
+from typing_extensions import deprecated
 
 from .cookies import check_cookie
 from .exceptions import UnsupportedSchemeError
@@ -88,6 +89,9 @@ class Transport(Flag):
 class Phase(Enum):
 
 	INITIAL = auto()
+	WRITE_HEADERS = auto()
+	WRITE_BODY_AWAIT = auto()
+	WRITE_BODY = auto()
 	READ_HEADERS = auto()
 	READ_BODY_AWAIT = auto()
 	READ_BODY = auto()
@@ -101,6 +105,7 @@ class Request:
 
 	def __init__(self, session: Session, method: Method, url: str):
 		self._request = CurlRequest(session, method, url)
+		self._writer: BodySendStream|None = None
 
 	def __repr__(self) -> str:
 		return f"<Request {self._request.method.name} {self._request.url}>"
@@ -126,14 +131,21 @@ class Request:
 		"""
 		return self._request.url
 
-	def body(self) -> BodySendStream:
+	async def body(self) -> BodySendStream:
 		"""
 		Return a writable object that can be used as an async context manager
-		"""
-		if not self._request.method.is_upload():
-			raise RuntimeError(f"cannot write to request method {self._request.method}")
-		return BodySendStream(self._request.write)
 
+		For example (note `async with await` to get a stream and use it as a context):
+
+		>>> async def put_httpbin(session: Session) -> Response:
+		...     req = Request(session, Method.PUT, "https://httpbin.org/put")
+		...     async with await req.body() as stream:
+		...         await stream.send(b"...")
+		...     return await req.get_response()
+		"""
+		return await self._request.get_writer()
+
+	@deprecated("use Request.body() as an async context to get a send stream")
 	async def write(self, data: bytes, /) -> None:
 		"""
 		Write data to an upload request
@@ -142,12 +154,16 @@ class Request:
 		"""
 		if not self._request.method.is_upload():
 			raise RuntimeError(f"cannot write to request method {self._request.method}")
-		await self._request.write(data)
+		if not self._writer:
+			self._writer = await self.body()
+		await self._writer.send(data)
 
 	async def get_response(self) -> Response:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
+		if self._writer:
+			await self._writer.aclose()
 		return await self._request.get_response()
 
 
@@ -198,9 +214,11 @@ class CurlRequest:
 		self.method = method
 		self.url = url
 		self._handle: Curl|None = None
+		self._stream: BodySendStream|None = None
 		self._response: Response|None = None
 		self._phase = Phase.INITIAL
 		self._upcomplete = False
+		self._sentall = False
 		self._data = b""
 
 	def configure_handle(self, handle: Curl) -> None:
@@ -220,14 +238,17 @@ class CurlRequest:
 				handle.setopt(UPLOAD, True)
 				handle.setopt(INFILESIZE, -1)
 				handle.setopt(READFUNCTION, self._process_input)
+				self._stream = BodySendStream(self.write)
 			case Method.POST:
 				handle.setopt(POST, True)
 				handle.setopt(READFUNCTION, self._process_input)
+				self._stream = BodySendStream(self.write)
 			case Method.PATCH:
 				handle.setopt(CUSTOMREQUEST, "PATCH")
 				handle.setopt(UPLOAD, True)
 				handle.setopt(INFILESIZE, -1)
 				handle.setopt(READFUNCTION, self._process_input)
+				self._stream = BodySendStream(self.write)
 			case Method.DELETE:
 				handle.setopt(CUSTOMREQUEST, "DELETE")
 
@@ -266,6 +287,12 @@ class CurlRequest:
 		This is part of the `konnect.curl.Request` interface.
 		"""
 		match self._phase:
+			case Phase.WRITE_BODY_AWAIT:
+				# After first call to input callback, always respond
+				return True
+			case Phase.WRITE_BODY:
+				# While writing request body data, interrupt once buffer depleted
+				return self._sentall
 			case Phase.READ_BODY_AWAIT:
 				assert self._response is not None
 				return self._response.code >= 200
@@ -273,7 +300,7 @@ class CurlRequest:
 				return self._data != b""
 		return False
 
-	def response(self) -> Response|bytes:
+	def response(self) -> BodySendStream|Response|bytes|None:
 		"""
 		Return a waiting response or raise `LookupError` if there is none
 
@@ -281,6 +308,16 @@ class CurlRequest:
 
 		This is part of the `konnect.curl.Request` interface.
 		"""
+		if self._phase == Phase.WRITE_BODY_AWAIT:
+			# First input callback call, subsequent calls can return request body data;
+			# self._stream better be set, 'cos a BodySendStream is needed.
+			self._phase = Phase.WRITE_BODY
+			assert self._stream is not None, "input stream missing when input callback called"
+			return self._stream
+		if self._phase == Phase.WRITE_BODY:
+			# No response in particular is needed after the buffer is drained, just an
+			# interrupt.
+			return None
 		if self._phase == Phase.READ_BODY_AWAIT:
 			self._phase = Phase.READ_BODY
 			assert self._response is not None
@@ -308,24 +345,36 @@ class CurlRequest:
 
 		Signal an EOF by writing b""
 		"""
-		# TODO: apply back-pressure when self._data reaches a certain length
-		# TODO: use a nicer buffer implementation than just appending
 		if data == b"":
 			self._upcomplete = True
-		elif self._data:
-			self._data += data
-		else:
-			self._data = data
+			if self._handle:
+				await self._update_send_state()
+				self._phase = Phase.READ_HEADERS
+			return
+		self._data += data
 		if self._handle:
-			self._handle.pause(PAUSE_CONT)
+			while self._data:
+				await self._update_send_state()
+
+	async def _update_send_state(self) -> None:
+		assert self._handle is not None
+		self._sentall = False
+		self._handle.pause(PAUSE_CONT)
+		val = await self.session.multi.process(self)
+		assert val is None, val
 
 	def _process_input(self, size: int) -> bytes|int:
-		if self._data:
-			data, self._data = self._data[:size], self._data[size:]
-			return data
-		if self._upcomplete:
-			return b""
-		return READFUNC_PAUSE
+		if self._phase == Phase.WRITE_HEADERS:
+			if not self._data:
+				self._phase = Phase.WRITE_BODY_AWAIT
+				return READFUNC_PAUSE
+			self._phase = Phase.WRITE_BODY
+		assert self._phase == Phase.WRITE_BODY, self._phase
+		if not self._data:
+			self._sentall = True
+			return b"" if self._upcomplete else READFUNC_PAUSE
+		data, self._data = self._data[:size], self._data[size:]
+		return data
 
 	def _process_header(self, data: bytes) -> None:
 		if data.startswith(b"HTTP/"):
@@ -334,8 +383,9 @@ class CurlRequest:
 			self._response = Response(data.decode("ascii"), stream)
 			return
 		assert self._response is not None
+		assert self._phase == Phase.READ_HEADERS, self._phase
 		if data == b"\r\n":
-			self._phase = Phase.READ_BODY_AWAIT
+			self._phase = Phase.WRITE_HEADERS if self._response.code == 100 else Phase.READ_BODY_AWAIT
 			return
 		if self._phase not in (Phase.READ_HEADERS, Phase.READ_TRAILERS):
 			self._phase = Phase.READ_TRAILERS
@@ -357,17 +407,38 @@ class CurlRequest:
 	def _process_body(self, data: bytes) -> None:
 		self._data += data
 
+	async def _start_request(self) -> BodySendStream|Response:
+		# Progress the request to the first checkpoint phase: WRITE_BODY_AWAIT
+		assert self._phase == Phase.INITIAL, self._phase
+		auth = get_authenticator(self.session.auth, self.url)
+		if auth is not None:
+			await auth.prepare_request(self)
+		self._phase = Phase.WRITE_HEADERS
+		phase_response = await self.session.multi.process(self)
+		assert isinstance(phase_response, (BodySendStream, Response)), phase_response
+		return phase_response
+
+	async def get_writer(self) -> BodySendStream:
+		if self._phase != Phase.INITIAL:
+			msg = f"only an unstarted request can return a body data stream"
+			raise RuntimeError(msg)
+		stream = await self._start_request()
+		if not isinstance(stream, BodySendStream):
+			msg = f"requests of type {self.method} do not support sending body data"
+			raise ValueError(msg)
+		return stream
+
 	async def get_response(self) -> Response:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
+		# Having the if-else condition this way around makes type checking easier
 		if self._phase != Phase.INITIAL:
-			raise RuntimeError("get_response() can only be called on an unstarted request")
-		auth = get_authenticator(self.session.auth, self.url)
-		if auth is not None:
-			await auth.prepare_request(self)
-		resp = await self.session.multi.process(self)
+			resp = await self.session.multi.process(self)
+		else:
+			resp = await self._start_request()
 		assert isinstance(resp, Response)
+		auth = get_authenticator(self.session.auth, self.url)
 		if auth is not None:
 			resp = await auth.process_response(self, resp)
 		return resp
