@@ -24,6 +24,11 @@ dependencies = [
 	"konnect.curl ~=0.1.0",
 ]
 
+
+[tool.flit.sdist]
+include = ["tests/"]
+
+
 [tool.isort]
 force_single_line = true
 line_length = 92
