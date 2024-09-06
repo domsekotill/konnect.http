@@ -21,6 +21,7 @@ from enum import Flag
 from enum import auto
 from ipaddress import IPv4Address
 from ipaddress import IPv6Address
+from os import fspath
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
@@ -276,6 +277,9 @@ class CurlRequest:
 		handle.setopt(REDIR_PROTOCOLS, PROTO_HTTP|PROTO_HTTPS)
 		handle.setopt(HEADERFUNCTION, self._process_header)
 		handle.setopt(WRITEFUNCTION, self._process_body)
+
+		if (cacert := self.session.ca_certificates):
+			handle.setopt(CAPATH if cacert.is_dir() else CAINFO, fspath(cacert))
 
 		if self.session.user_agent is not None:
 			handle.setopt(USERAGENT, self.session.user_agent)

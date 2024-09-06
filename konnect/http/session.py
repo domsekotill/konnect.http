@@ -26,6 +26,7 @@ from konnect.curl import Time
 from konnect.curl.scalars import Quantity
 
 from .authenticators import AuthHandler
+from .certificates import discover_ca_certs
 from .cookies import Cookie
 from .exceptions import UnsupportedSchemeError
 from .request import Method
@@ -67,6 +68,7 @@ class Session:
 		self.auth = dict[ServiceIdentifier, AuthHandler]()
 		self.cookies = set[Cookie]()
 		self.user_agent: str|None = None
+		self.ca_certificates = discover_ca_certs()
 
 	async def __aenter__(self) -> Self:
 		# For future use; likely downloading PAC files if used for proxies
