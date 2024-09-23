@@ -55,6 +55,7 @@ __all__ = [
 	"Method",
 	"Transport",
 	"Request",
+	"encode_header",
 ]
 
 
@@ -131,6 +132,13 @@ class Request:
 		Wrap the underlying request's url attribute
 		"""
 		return self._request.url
+
+	@property
+	def headers(self) -> list[bytes]:
+		"""
+		Wrap the underlying request's header list attribute
+		"""
+		return self._request.headers
 
 	async def body(self) -> BodySendStream:
 		"""
@@ -214,6 +222,7 @@ class CurlRequest:
 		self.session = session
 		self.method = method
 		self.url = url
+		self.headers = list[bytes]()
 		self._handle: Curl|None = None
 		self._stream: BodySendStream|None = None
 		self._response: Response|None = None
@@ -283,6 +292,9 @@ class CurlRequest:
 
 		if self.session.user_agent is not None:
 			handle.setopt(USERAGENT, self.session.user_agent)
+
+		if self.headers:
+			handle.setopt(HTTPHEADER, self.headers)
 
 	def has_response(self) -> bool:
 		"""
@@ -507,3 +519,12 @@ def get_authenticator(
 		return authenticators[parts.scheme, parts.netloc]  # type: ignore[index]
 	except KeyError:
 		return None
+
+
+def encode_header(name: str|bytes, value: bytes) -> bytes:
+	"""
+	Encode a header string without a line terminator
+	"""
+	if isinstance(name, str):
+		name = name.encode("ascii")
+	return b":".join((name, value))
