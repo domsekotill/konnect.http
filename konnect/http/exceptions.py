@@ -15,3 +15,9 @@ class CertificatesNotFoundError(ExceptionGroup[FileNotFoundError|PermissionError
 	"""
 	Indicates that no certificate paths could be found, and which paths were checked
 	"""
+
+
+class UnauthorizedError(Exception):
+	"""
+	A server responded to a request with '401 Unauthorized'
+	"""
