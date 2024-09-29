@@ -399,13 +399,21 @@ class CurlRequest:
 			self._response = Response(data.decode("ascii"), stream)
 			return
 		assert self._response is not None
-		assert self._phase == Phase.READ_HEADERS, self._phase
 		if data == b"\r\n":
+			assert self._phase == Phase.READ_HEADERS, self._phase
 			self._phase = Phase.WRITE_HEADERS if self._response.code == 100 else Phase.READ_BODY_AWAIT
 			return
-		if self._phase not in (Phase.READ_HEADERS, Phase.READ_TRAILERS):
-			self._phase = Phase.READ_TRAILERS
-		self._response.headers.append(self._split_field(data))
+		field = self._split_field(data)
+		match self._phase:
+			case Phase.READ_HEADERS:
+				self._response.headers.append(field)
+			case Phase.READ_BODY:
+				self._phase = Phase.READ_TRAILERS
+				self._response.trailers.append(field)
+			case Phase.READ_TRAILERS:
+				self._response.trailers.append(field)
+			case phase:
+				raise AssertionError(f"unexpected phase {phase} when reading fields")
 
 	def _split_field(self, field: bytes) -> tuple[str, bytes]:
 		assert self._response is not None

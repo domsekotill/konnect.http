@@ -186,6 +186,7 @@ class Response:
 				raise ValueError
 		self.stream = stream
 		self.headers = list[tuple[str, bytes]]()
+		self.trailers = list[tuple[str, bytes]]()
 
 	def __repr__(self) -> str:
 		return f"<Response {self.code} {self.status}>"
