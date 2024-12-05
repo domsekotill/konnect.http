@@ -20,10 +20,10 @@ from copy import copy
 from typing import Self
 from urllib.parse import urlparse
 
+from kodo.quantities import Quantity
 from konnect.curl import SECONDS
 from konnect.curl import Multi
 from konnect.curl import Time
-from konnect.curl.scalars import Quantity
 
 from .authenticators import AuthHandler
 from .certificates import discover_ca_certs

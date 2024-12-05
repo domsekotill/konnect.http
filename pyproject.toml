@@ -21,7 +21,8 @@ classifiers = [
 requires-python = "~=3.11"
 dependencies = [
 	"anyio ~=4.0",
-	"konnect.curl ~=0.1.0",
+	"kodo.quantities",
+	"konnect.curl ~=0.2.0",
 ]
 
 

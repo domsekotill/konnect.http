@@ -32,6 +32,8 @@ from typing import Union
 from urllib.parse import urlparse
 
 from konnect.curl import MILLISECONDS
+from konnect.curl.abc import ConfigHandle
+from konnect.curl.abc import GetInfoHandle
 from pycurl import *
 from typing_extensions import deprecated
 
@@ -180,7 +182,7 @@ class BodySendStream:
 	"""
 	Provides an interface for writing to request bodies
 
-	Once a body has been completely written it must be finalised either by calling `close()`
+	Once a body has been completely written it must be finalised either by calling `aclose()`
 	or by exiting the context created by using instances of this class as (async) context
 	managers.
 	"""
@@ -223,7 +225,7 @@ class CurlRequest:
 		self.method = method
 		self.url = url
 		self.headers = list[bytes]()
-		self._handle: Curl|None = None
+		self._handle: ConfigHandle|None = None
 		self._stream: BodySendStream|None = None
 		self._response: Response|None = None
 		self._phase = Phase.INITIAL
@@ -231,7 +233,7 @@ class CurlRequest:
 		self._sentall = False
 		self._data = b""
 
-	def configure_handle(self, handle: Curl) -> None:
+	def configure_handle(self, handle: ConfigHandle) -> None:
 		"""
 		Configure a konnect.curl.Curl handle for this request
 
@@ -296,7 +298,7 @@ class CurlRequest:
 		if self.headers:
 			handle.setopt(HTTPHEADER, self.headers)
 
-	def has_response(self) -> bool:
+	def has_update(self) -> bool:
 		"""
 		Return whether calling `response()` will return a value or raise `LookupError`
 
@@ -316,7 +318,7 @@ class CurlRequest:
 				return self._data != b""
 		return False
 
-	def response(self) -> BodySendStream|Response|bytes|None:
+	def get_update(self) -> BodySendStream|Response|bytes|None:
 		"""
 		Return a waiting response or raise `LookupError` if there is none
 
@@ -345,7 +347,7 @@ class CurlRequest:
 		data, self._data = self._data, b""
 		return data
 
-	def completed(self) -> bytes:
+	def completed(self, handle: GetInfoHandle) -> bytes:
 		"""
 		Complete the transfer by returning the final stream bytes
 

@@ -94,5 +94,6 @@ repos:
     language_version: python3.11
     additional_dependencies:
     - anyio
-    - types-konnect.curl ~=0.1.2
+    - kodo.quantities
+    - types-konnect.curl ~=0.2.0
     - types-pycurl
