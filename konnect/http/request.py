@@ -1,4 +1,4 @@
-# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Module providing a `konnect.curl.Request` implementation for HTTP requests
@@ -30,6 +30,7 @@ from typing import Self
 from typing import TypeAlias
 from typing import Union
 from urllib.parse import urlparse
+from warnings import warn
 
 from konnect.curl import MILLISECONDS
 from konnect.curl.abc import ConfigHandle
@@ -463,6 +464,12 @@ class CurlRequest:
 			resp = await self.session.multi.process(self)
 		else:
 			resp = await self._start_request()
+		if isinstance(resp, BodySendStream):
+			msg = f"uploading an empty body with a {self.method} request, " \
+				f"did you mean to use Request.body() to get a BodySendStream?"
+			warn(msg, stacklevel=3)
+			await resp.aclose()
+			resp = await self.session.multi.process(self)
 		assert isinstance(resp, Response)
 		auth = get_authenticator(self.session.auth, self.url)
 		if auth is not None:
