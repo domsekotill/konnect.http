@@ -37,27 +37,9 @@ line_length = 92
 [tool.unimport]
 ignore-init = true
 
-
-[tool.flakeheaven]
-base = "https://code.kodo.org.uk/dom/project-templates/-/raw/main/.flakerules.toml"
-colored = true
-max_line_length = 92
-max_doc_length = 92
-
-[tool.flakeheaven.plugins]
-flake8-return = ["-R504"]
-
-[tool.flakeheaven.exceptions."examples/"]
-flake8-print = ["-*"]
-
-
-[tool.mypy]
-strict = true
-namespace_packages = true
-explicit_package_bases = true
-allow_redefinition = true
-warn_unused_configs = true
-warn_unreachable = true
+[tool.pyright]
+pythonVersion = "3.11"
+include = ["konnect", "tests"]
 
 
 [tool.coverage.run]

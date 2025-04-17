@@ -1,0 +1,179 @@
+line-length = 92
+indent-width = 1  # Used for line length violations
+
+[format]
+indent-style = "tab"
+skip-magic-trailing-comma = false
+
+[lint]
+select = [
+	# pyflakes
+	# --------
+
+	# ENABLE "Undefined name %s in __all__"
+	"F822",
+
+	# ENABLE "Local variable %s ... referenced before assignment"
+	"F823",
+
+	# ENABLE "Local variable %s is assigned to but never used"
+	"F841",
+
+	# ENABLE "raise NotImplemented should be raise NotImplementedError"
+	# mypy has particular trouble with this one:
+	# https://github.com/python/mypy/issues/5710
+	"F901",
+
+	# pycodestyle
+	# -----------
+
+	# Warnings not considered, many are not relevant to Python ~=3.9 and will
+	# cause syntax errors anyway, others concern whitespace which is fixed by
+	# a pre-commit hook.
+	"E",
+
+	# mccabe
+	# ------
+
+	"C90",
+
+	# pydocstyle
+	# ----------
+
+	# Missing docstrings
+	"D1",
+
+	# Whitespace Issues
+	"D2",
+
+	# ENABLE "Use “””triple double quotes”””"
+	"D300",
+
+	# First line should be descriptive, imperative and capitalised
+	"D401", "D402", "D403", "D404",
+
+	# ENABLE "Function/Method decorated with @overload shouldn’t contain a docstring"
+	"D418",
+
+	# flake8-bugbear
+	# --------------
+
+	# The bulk of bugbear's checks are useful
+	"B0",
+
+	# Various others
+	# --------------
+
+	"UP", "BLE", "FBT", "A", "C4", "DTZ", "ISC", "LOG", "G", "PIE", "T",
+	"Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TD", "ANN",
+	"RUF",
+
+	# Nice to have, needs fixing in several places though...
+	# "EM", "TCH", "PTH", "PGH",
+]
+ignore = [
+	# pycodestyle
+	# -----------
+
+	# DISABLE "Indentation contains mixed spaces and tabs"
+	# Will cause a syntax error if critical, otherwise in docstrings it is
+	# sometimes nice to use different indentation for "outer" (code) indentation
+	# and "inner" (documentation) indentation.
+	"E101",
+
+	# DISABLE "Continuation line missing indentation or outdented"
+	# "E122",
+
+	# DISABLE "Missing whitespace around bitwise or shift operator"
+	"E227",
+
+	# DISABLE "missing whitespace around arithmetic operator"
+	"E226",
+
+	# DISABLE "Line too long"
+	# Prefer B950 implementation
+	"E501",
+
+	# DISABLE "Multiple statements on one line (colon)"
+	"E701",
+
+	# DISABLE "Multiple statements on one line (def)"
+	# Doesn't work well with @overload definitions
+	# "E704",
+
+	# pydocstyle
+	# ----------
+
+	# DISABLE "Missing docstring in magic method"
+	# Magic/dunder methods are well-known
+	"D105",
+
+	# DISABLE "Missing docstring in __init__"
+	# Document basic construction in the class docstring
+	"D107",
+
+	# DISABLE "One-line docstring should fit on one line with quotes"
+	# Prefer top-and-bottom style always
+	"D200",
+
+	# DISABLE "1 blank line required before class docstring"
+	"D203",
+
+	# DISABLE "Docstring should be indented with spaces, not tabs"
+	# Tabs, absolutely always
+	"D206",
+
+	# DISABLE "Multi-line docstring summary should start at the first line"
+	"D212",
+
+	# flake8-bugbear
+	# --------------
+
+	# DISABLE "Do not use mutable data structures for argument defaults [...]"
+	# Would be nice if could take into account use as a non-mutable type
+	"B006",
+
+	# DISABLE "Loop control variable `self` overrides iterable it iterates"
+	# Bit buggy, and type checker should catch it.
+	"B020",
+
+	# DISABLE "release is an empty method in an abstract base class, [...]"
+	# Until abstract methods are optional, empty optional "abstract" methods
+	# stay
+	"B027",
+
+	# Use named-tuples (preferably class based) for data-only classes
+	# "B903",
+
+	# Replacement for E501
+	# "B950",
+
+	# flake8-return
+	# -------------
+
+	# DISABLE "missing explicit return at the end of function able to return
+	# non-None value"
+	# Mypy will report this, plugin also cannot do exhaustiveness check of match
+	# block, leading to false-positives.
+	"RET503",
+
+	# DISABLE "Boolean positional value in function call"
+	# Too many stdlib functions take a single positional-only boolean. ruff
+	# can't interpret function signatures to ignore these and doesn't understand
+	# types to allow-list methods.
+	"FBT003",
+
+	# DISABLE "Implicitly concatenated string literals over multiple lines"
+	# It sometimes looks better to do this than introduce unecessary
+	# parentheses.
+	"ISC002",
+]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["D104"]
+"**/__main__.py" = ["D100", "E702"]
+"**/_*.py" = ["D1"]
+"examples/**.py" = ["T"]
+"tests/*" = ["D1"]
+"doc/*" = ["D"]
+"README.md" = ["D"]
