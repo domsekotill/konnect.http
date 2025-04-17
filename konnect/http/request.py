@@ -10,12 +10,11 @@ For many uses, there is a simple interface supplied by the `Session` class which
 require users to interact directly with the classes supplied in this module.
 """
 
-# mypy: disable-error-code="no-untyped-call"
-
 from __future__ import annotations
 
 from collections.abc import Awaitable
 from collections.abc import Callable
+from collections.abc import Mapping
 from enum import Enum
 from enum import Flag
 from enum import auto
@@ -25,10 +24,8 @@ from os import fspath
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
-from typing import Mapping
 from typing import Self
 from typing import TypeAlias
-from typing import Union
 from urllib.parse import urlparse
 from warnings import warn
 
@@ -48,16 +45,13 @@ if TYPE_CHECKING:
 	from .session import Session
 
 ServiceIdentifier: TypeAlias = tuple[Literal["http", "https"], str]
-TransportInfo: TypeAlias = Union[
-	tuple[IPv4Address | IPv6Address | str, int],
-	Path,
-]
+TransportInfo: TypeAlias = tuple[IPv4Address | IPv6Address | str, int] | Path
 
 
 __all__ = [
 	"Method",
-	"Transport",
 	"Request",
+	"Transport",
 	"encode_header",
 ]
 
@@ -105,10 +99,12 @@ class Phase(Enum):
 
 class Request:
 	"""
-	This class provides the user-callable API for requests
+	An HTTP request
 	"""
 
-	def __init__(self, session: Session, method: Method, url: str):
+	# This is the user-callable API for requests
+
+	def __init__(self, session: Session, method: Method, url: str) -> None:
 		self._request = CurlRequest(session, method, url)
 		self._writer: BodySendStream|None = None
 
@@ -188,7 +184,7 @@ class BodySendStream:
 	managers.
 	"""
 
-	def __init__(self, writefn: Callable[[bytes], Awaitable[None]]):
+	def __init__(self, writefn: Callable[[bytes], Awaitable[None]]) -> None:
 		self._write = writefn
 
 	async def __aenter__(self) -> Self:
@@ -216,12 +212,12 @@ class BodySendStream:
 
 class CurlRequest:
 	"""
-	This class provides the `konnect.curl.Request` interface, callbacks and internal API
+	Implementation of the `konnect.curl.Request` interface, callbacks and internal API
 
 	It is not intended to be used directly by users.
 	"""
 
-	def __init__(self, session: Session, method: Method, url: str):
+	def __init__(self, session: Session, method: Method, url: str) -> None:
 		self.session = session
 		self.method = method
 		self.url = url
@@ -234,7 +230,7 @@ class CurlRequest:
 		self._sentall = False
 		self._data = b""
 
-	def configure_handle(self, handle: ConfigHandle) -> None:
+	def configure_handle(self, handle: ConfigHandle) -> None:  # noqa: C901
 		"""
 		Configure a konnect.curl.Curl handle for this request
 
@@ -422,7 +418,6 @@ class CurlRequest:
 		assert self._response is not None
 		name, has_sep, value = field.partition(b":")
 		if has_sep:
-			# TODO: test performance of str.lower() vs. bytes.lower()
 			return name.lower().decode("ascii"), value.strip()
 		try:
 			lname = self._response.headers[-1][0]
@@ -442,7 +437,7 @@ class CurlRequest:
 			await auth.prepare_request(self)
 		self._phase = Phase.WRITE_HEADERS
 		phase_response = await self.session.multi.process(self)
-		assert isinstance(phase_response, (BodySendStream, Response)), phase_response
+		assert isinstance(phase_response, BodySendStream | Response), phase_response
 		return phase_response
 
 	async def get_writer(self) -> BodySendStream:

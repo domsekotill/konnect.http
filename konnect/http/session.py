@@ -1,4 +1,4 @@
-# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Sessions are the primary entrypoint for users
@@ -52,8 +52,11 @@ class Session:
 	`Request.get_response()`.
 	"""
 
-	# TODO: cookiejars
-	# TODO: proxies
+	# TODO(dom): cookiejars
+	# https://code.kodo.org.uk/konnect/konnect.http/-/issues/11
+
+	# TODO(dom): proxies
+	# https://code.kodo.org.uk/konnect/konnect.http/-/issues/12
 
 	def __init__(
 		self, *,

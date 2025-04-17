@@ -1,4 +1,4 @@
-# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Authentication handlers for adding auth data to requests and implementing auth flows
@@ -32,6 +32,7 @@ class AuthHandler(Protocol):
 		adding session cookies); it is a coroutine to allow handlers to inject an auth-flow
 		before the request.  Any such flow SHOULD use the request's session.
 		"""
+		...
 
 	async def process_response(self, request: CurlRequest, response: Response, /) -> Response:
 		"""
@@ -41,6 +42,7 @@ class AuthHandler(Protocol):
 		further actions need to be taken; or further requests can be made if necessary,
 		after which a new successful response to an identical request must be returned.
 		"""
+		...
 
 
 class BasicAuth:
@@ -59,7 +61,7 @@ class BasicAuth:
 		"""
 		Insert a basic authentication header into a request
 		"""
-		val = f"{self.username}:{self.password}".encode("utf-8")
+		val = f"{self.username}:{self.password}".encode()
 		val = b"Basic " + encode(val, "base64").strip()
 		request.headers.append(encode_header(b"Authorization", val))
 

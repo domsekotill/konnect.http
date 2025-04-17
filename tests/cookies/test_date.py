@@ -1,5 +1,6 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023, 2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
+from datetime import UTC
 from datetime import datetime
 from unittest import TestCase
 
@@ -20,15 +21,16 @@ class Tests(TestCase):
 			"January 1st 70 12:34:56",
 			"12:34:56 1970 Jan 1st",
 			"1-jan-1970/12:34:56",
+			"Thu, 1 Jan 1970 12:34:56 GMT", # Strictly correct according to Moz docs
 		]
 
 		for string in testvals:
 			with self.subTest(string=string):
-				assert dateparse(string) == datetime(1970, 1, 1, 12, 34, 56)
+				assert dateparse(string) == datetime(1970, 1, 1, 12, 34, 56, tzinfo=UTC)
 
 		string = "Jan 1 30 12:34:56"
 		with self.subTest(string=string):
-			assert dateparse(string) == datetime(2030, 1, 1, 12, 34, 56)
+			assert dateparse(string) == datetime(2030, 1, 1, 12, 34, 56, tzinfo=UTC)
 
 	def test_working_months(self) -> None:
 		"""
@@ -52,7 +54,7 @@ class Tests(TestCase):
 			for name in names:
 				with self.subTest(name=name):
 					date = dateparse(f"1 {name} 1970 12:34:56")
-					assert date == datetime(1970, number + 1, 1, 12, 34, 56)
+					assert date == datetime(1970, number + 1, 1, 12, 34, 56, tzinfo=UTC)
 
 	def test_incomplete(self) -> None:
 		"""

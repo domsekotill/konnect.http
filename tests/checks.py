@@ -1,4 +1,4 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023, 2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 import os
 import re
@@ -16,5 +16,4 @@ def check_exc(exc: Exception, mesg: str) -> None:
 	detail = f"expected {mesg!r}, got {str(exc)!r}"
 	if "TEST_STRICT_EXC" in os.environ:
 		raise AssertionError(f"Exception does not match expectation: {detail}")
-	else:
-		warn(f"Exception may have changed: {detail}", RuntimeWarning, 2)
+	warn(f"Exception may have changed: {detail}", RuntimeWarning, 2)

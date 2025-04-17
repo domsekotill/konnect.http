@@ -1,4 +1,4 @@
-# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Response classes for HTTP requests
@@ -74,7 +74,7 @@ class ReadStream:
 			data, self._buffer = data[:max_bytes], data[max_bytes:]
 		return data
 
-	async def readuntil(self, separator: bytes = b'\n') -> bytes:
+	async def readuntil(self, separator: bytes = b"\n") -> bytes:
 		"""
 		Read and return up-to and including the first instance of `separator` in the stream
 
@@ -91,14 +91,14 @@ class ReadStream:
 			try:
 				data = await self._receive()
 			except EndOfStream:
-				raise IncompleteReadError(b''.join(chunks), None)
+				raise IncompleteReadError(b"".join(chunks), None)
 			if (split := data.find(separator)) >= 0:
 				split += len(separator)
 				assert len(data) >= split
 				data, self._buffer = data[:split], data[split:]
 			chunks.append(data)
 			length += len(data)
-		return b''.join(chunks)
+		return b"".join(chunks)
 
 	async def read(self, max_size: int = -1, /) -> bytes:
 		"""
@@ -121,7 +121,7 @@ class ReadStream:
 				chunks.append(chunk)
 		except EndOfStream:
 			pass
-		return b''.join(chunks)
+		return b"".join(chunks)
 
 	async def readline(self) -> bytes:
 		r"""
@@ -137,7 +137,7 @@ class ReadStream:
 		Implements `asyncio.StreamReader.readline()`
 		"""
 		try:
-			return await self.readuntil(b'\n')
+			return await self.readuntil(b"\n")
 		except IncompleteReadError as exc:
 			return exc.partial
 		except LimitOverrunError as exc:
@@ -157,8 +157,8 @@ class ReadStream:
 				size -= len(chunk)
 			assert size == 0, "ReadStream.receive() returned too many bytes"
 		except EndOfStream:
-			IncompleteReadError(b''.join(chunks), size)
-		return b''.join(chunks)
+			IncompleteReadError(b"".join(chunks), size)
+		return b"".join(chunks)
 
 	def at_eof(self) -> bool:
 		"""
@@ -172,7 +172,7 @@ class Response:
 	A class for response details, and header and body accessors
 	"""
 
-	def __init__(self, response: str, stream: ReadStream):
+	def __init__(self, response: str, stream: ReadStream) -> None:
 		match response.split(maxsplit=2):
 			case [version, response, status]:
 				self.version = version

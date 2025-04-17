@@ -1,4 +1,4 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023, 2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Tokenising of cookies and attributes from "Set-Cookie:" HTTP headers
@@ -12,7 +12,6 @@ from enum import Enum
 from enum import auto
 from typing import Literal
 from typing import TypeAlias
-from typing import Union
 from urllib.parse import unquote as urldecode
 
 from .dates import dateparse
@@ -47,16 +46,10 @@ class TokenType(Enum):
 	HTTP_ONLY = auto()
 
 
-Token: TypeAlias = Union[
-	tuple[Literal[TokenType.NAME, TokenType.DOMAIN, TokenType.PATH], str],
-	tuple[Literal[TokenType.VALUE], bytes],
-	tuple[Literal[TokenType.EXPIRES], DateTime],
-	tuple[Literal[TokenType.MAX_AGE], TimeDelta],
-	tuple[Literal[TokenType.SECURE, TokenType.HTTP_ONLY], bool],
-]
+Token: TypeAlias = tuple[Literal[TokenType.NAME, TokenType.DOMAIN, TokenType.PATH], str] | tuple[Literal[TokenType.VALUE], bytes] | tuple[Literal[TokenType.EXPIRES], DateTime] | tuple[Literal[TokenType.MAX_AGE], TimeDelta] | tuple[Literal[TokenType.SECURE, TokenType.HTTP_ONLY], bool]
 
 
-def tokenise(header: bytes) -> Iterator[Token]:
+def tokenise(header: bytes) -> Iterator[Token]:  # noqa: C901
 	"""
 	Yield tokenised parts of a "Set-Cookie:" header
 
@@ -107,7 +100,6 @@ def tokenise(header: bytes) -> Iterator[Token]:
 					continue  # domains ending with "." MUST be ignored
 				if domain[0] == DOT:
 					domain = domain.lstrip(b".")
-				# TODO: Additional check for disallowed chars?
 				yield TokenType.DOMAIN, domain.decode("idna").lower()
 			case [b"path", bytes(path)]:
 				path = path.strip()

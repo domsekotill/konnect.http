@@ -1,4 +1,4 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023, 2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Parsing of timestamps used for the "expires" attribute of "Set-Cookie:" headers
@@ -10,6 +10,7 @@ algorithm described in RFC6265#section-5.1.1
 """
 
 import re
+from datetime import UTC
 from datetime import datetime as DateTime
 from typing import TypedDict
 
@@ -45,7 +46,7 @@ class DateTimeArgs(TypedDict):
 	second: int
 
 
-def dateparse(date: str) -> DateTime:
+def dateparse(date: str) -> DateTime:  # noqa: C901
 	"""
 	Parse a "Set-Cookie:" expiration date string
 	"""
@@ -86,4 +87,4 @@ def dateparse(date: str) -> DateTime:
 				raise ValueError(f"Unexpected value: {match.group('match')}")
 	if not (found_time and found_day and found_month and found_year):
 		raise ValueError(f"Incomplete date-time: {date} ({vals})")
-	return DateTime(**vals)
+	return DateTime(**vals, tzinfo=UTC)

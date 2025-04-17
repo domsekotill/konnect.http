@@ -1,5 +1,6 @@
-# Copyright 2023  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023, 2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 from unittest import TestCase
@@ -22,7 +23,7 @@ GOOD_VALS = [
 
 	(
 		b"Set-Cookie: ssid=1; expires=Thu, Jan 1 1970 12:34:56",
-		{TokenType.NAME: "ssid", TokenType.VALUE: b"1", TokenType.EXPIRES: datetime(1970, 1, 1, 12, 34, 56)},
+		{TokenType.NAME: "ssid", TokenType.VALUE: b"1", TokenType.EXPIRES: datetime(1970, 1, 1, 12, 34, 56, tzinfo=UTC)},
 	),
 
 	(

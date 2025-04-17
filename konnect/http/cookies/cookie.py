@@ -1,9 +1,10 @@
-# Copyright 2023-2024  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Module containing the core Cookie class and checking functions
 """
 
+from datetime import UTC
 from datetime import datetime as DateTime
 from datetime import timedelta as TimeDelta
 from ipaddress import IPv4Address
@@ -27,13 +28,13 @@ class Cookie:
 		expires: DateTime|TimeDelta|None,
 		domain: str, path: str, *,
 		secure: bool = False, httponly: bool = False, exactdomain: bool = True,
-	):
+	) -> None:
 		self.name = name
 		self.value = value
 		self.expires = (
 			None if expires is None else
 			expires if isinstance(expires, DateTime) else
-			(DateTime.now() + expires)
+			(DateTime.now(UTC) + expires)
 		)
 		self.domain = domain
 		self.path = path
@@ -57,14 +58,18 @@ class Cookie:
 				case [TokenType.VALUE, bytes(value)]:
 					self.value = value
 				case [TokenType.DOMAIN, str(domain)]:
+					# TODO(dom): validate cookie domains
+					# https://code.kodo.org.uk/konnect/konnect.http/-/issues/10
 					self.domain = domain
 					self.exactdomain = False
 				case [TokenType.PATH, str(path)]:
+					# TODO(dom): validate cookie paths
+					# https://code.kodo.org.uk/konnect/konnect.http/-/issues/10
 					self.path = path
 				case [TokenType.EXPIRES, DateTime() as expires]:
 					self.expires = expires
 				case [TokenType.MAX_AGE, TimeDelta() as max_age]:
-					self.expires = DateTime.now() + max_age
+					self.expires = DateTime.now(UTC) + max_age
 				case [TokenType.SECURE, bool(secure)]:
 					self.secure = secure
 				case [TokenType.HTTP_ONLY, bool(http_only)]:
@@ -85,7 +90,7 @@ def check_cookie(cookie: Cookie, url: str) -> bool:
 	"""
 	Return whether the cookie should be sent with the request
 	"""
-	if cookie.expires and cookie.expires <= DateTime.now():
+	if cookie.expires and cookie.expires <= DateTime.now(UTC):
 		return False
 
 	parts = urlparse(url)
