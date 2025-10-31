@@ -139,6 +139,12 @@ class Request:
 		"""
 		return self._request.headers
 
+	def set_auth_handler(self, handler: AuthHandler) -> None:
+		"""
+		Add an authentication handler to a request
+		"""
+		self._request.auth = handler
+
 	async def body(self) -> BodySendStream:
 		"""
 		Return a writable object that can be used as an async context manager
@@ -222,6 +228,7 @@ class CurlRequest:
 		self.method = method
 		self.url = url
 		self.headers = list[bytes]()
+		self.auth = get_authenticator(session.auth, url)
 		self._handle: ConfigHandle|None = None
 		self._stream: BodySendStream|None = None
 		self._response: Response|None = None
@@ -432,8 +439,7 @@ class CurlRequest:
 	async def _start_request(self) -> BodySendStream|Response:
 		# Progress the request to the first checkpoint phase: WRITE_BODY_AWAIT
 		assert self._phase == Phase.INITIAL, self._phase
-		auth = get_authenticator(self.session.auth, self.url)
-		if auth is not None:
+		if auth := self.auth:
 			await auth.prepare_request(self)
 		self._phase = Phase.WRITE_HEADERS
 		phase_response = await self.session.multi.process(self)
@@ -466,8 +472,7 @@ class CurlRequest:
 			await resp.aclose()
 			resp = await self.session.multi.process(self)
 		assert isinstance(resp, Response)
-		auth = get_authenticator(self.session.auth, self.url)
-		if auth is not None:
+		if auth := self.auth:
 			resp = await auth.process_response(self, resp)
 		return resp
 
