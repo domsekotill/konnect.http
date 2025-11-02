@@ -28,7 +28,7 @@ class ReadStream:
 
 	This class implements the methods for `asyncio.StreamReader` and
 	`anyio.abc.ByteReceiveStream`, allowing it to be passed to library functions that may
-	require either of those interfaces.
+	require either of those interfaces, regardless of the actual async runtime used.
 	"""
 
 	def __init__(self, request: CurlRequest) -> None:
@@ -70,7 +70,9 @@ class ReadStream:
 		Implements `anyio.abc.ByteReceiveStream.receive()`
 		"""
 		data = await self._receive()
-		if max_bytes >= 0:
+		if max_bytes == 0:
+			return b""
+		if max_bytes > 0:
 			data, self._buffer = data[:max_bytes], data[max_bytes:]
 		return data
 
@@ -109,7 +111,10 @@ class ReadStream:
 
 		Implements `asyncio.StreamReader.read()`
 		"""
-		if max_size >= 0:
+		# shortcut `read(0)` as apparently some libraries use it to check return type
+		if max_size == 0:
+			return b""
+		if max_size > 0:
 			try:
 				return await self.receive(max_size)
 			except EndOfStream:
