@@ -1,4 +1,6 @@
-default_stages: [commit]
+minimum_pre_commit_version: 3.2.0
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit]
 repos:
 
 - repo: meta
@@ -18,16 +20,16 @@ repos:
   - id: debug-statements
   - id: destroyed-symlinks
   - id: end-of-file-fixer
-    stages: [commit, manual]
+    stages: [pre-commit, manual]
   - id: fix-byte-order-marker
   - id: fix-encoding-pragma
     args: [--remove]
   - id: mixed-line-ending
     args: [--fix=lf]
-    stages: [commit, manual]
+    stages: [pre-commit, manual]
   - id: trailing-whitespace
     exclude_types: [markdown, plain-text]
-    stages: [commit, manual]
+    stages: [pre-commit, manual]
 
 - repo: https://github.com/jorisroovers/gitlint
   rev: v0.19.1
@@ -41,7 +43,7 @@ repos:
   - id: check-for-squash
   - id: copyright-notice
     args: [--min-size=1]
-    stages: [commit, manual]
+    stages: [pre-commit, manual]
   - id: protect-first-parent
 
 - repo: https://github.com/pre-commit/pygrep-hooks
@@ -56,14 +58,14 @@ repos:
   hooks:
   - id: unimport
     args: [--remove]
-    stages: [commit, manual]
+    stages: [pre-commit, manual]
 
 - repo: https://github.com/pycqa/isort
   rev: 5.12.0
   hooks:
   - id: isort
     types: [python]
-    stages: [commit, manual]
+    stages: [pre-commit, manual]
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.11.5
@@ -84,5 +86,5 @@ repos:
     - types-pycurl
   - id: pyright
     additional_dependencies: *deps
-    stages: ["push", "manual"]
+    stages: ["pre-push", "manual"]
     pass_filenames: false
