@@ -19,7 +19,23 @@ from typing import TYPE_CHECKING
 from anyio import EndOfStream
 
 if TYPE_CHECKING:
+	from collections.abc import Awaitable
+	from collections.abc import Callable
+	from typing import ParamSpec
+
 	from .request import CurlRequest
+
+	P = ParamSpec("P")
+
+
+def _check_non_empty(func: Callable[P, Awaitable[bytes]]) -> Callable[P, Awaitable[bytes]]:
+	if not __debug__:
+		return func
+	async def wrap(*args: P.args, **kwargs: P.kwargs) -> bytes:
+		resp = await func(*args, **kwargs)
+		assert len(resp) > 0, f"empty bytes response from {func}"
+		return resp
+	return wrap
 
 
 class ReadStream:
@@ -50,6 +66,7 @@ class ReadStream:
 		"""
 		self.request = None
 
+	@_check_non_empty
 	async def _receive(self) -> bytes:
 		# Wait until a chunk is available, and return it. Raise EndOfStream if indicated
 		# with an empty byte chunk.
@@ -125,8 +142,8 @@ class ReadStream:
 			while (chunk := await self.receive()):
 				chunks.append(chunk)
 		except EndOfStream:
-			pass
-		return b"".join(chunks)
+			return b"".join(chunks)
+		raise AssertionError("EndOfStream not raised by Stream.receive()")
 
 	async def readline(self) -> bytes:
 		r"""
