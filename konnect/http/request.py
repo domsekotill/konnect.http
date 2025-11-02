@@ -357,6 +357,9 @@ class CurlRequest:
 
 		This is part of the `konnect.curl.Request` interface.
 		"""
+		if self._phase == Phase.READ_TRAILERS:
+			assert self._data == b""
+			return b""
 		assert self._phase == Phase.READ_BODY
 		data, self._data = self._data, b""
 		return data
