@@ -17,6 +17,7 @@ HTTP method), and awaiting a response from them.
 """
 
 from copy import copy
+from typing import ClassVar
 from typing import Self
 from urllib.parse import urlparse
 
@@ -58,13 +59,18 @@ class Session:
 	# TODO(dom): proxies
 	# https://code.kodo.org.uk/konnect/konnect.http/-/issues/12
 
+	default_request_class: ClassVar[type[Request]]
+
+	def __init_subclass__(cls, *, request_class: type[Request] = Request) -> None:
+		cls.default_request_class = request_class
+
 	def __init__(
 		self, *,
 		multi: Multi|None = None,
-		request_class: type[Request] = Request,
+		request_class: type[Request] | None = None,
 	) -> None:
 		self.multi = multi or Multi()
-		self.request_class = request_class
+		self.request_class = request_class or self.default_request_class
 		self.timeout: Quantity[Time] = 0 @ SECONDS
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 		self.transports = dict[ServiceIdentifier, TransportInfo]()
