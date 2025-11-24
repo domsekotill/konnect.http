@@ -13,7 +13,9 @@ from __future__ import annotations
 from asyncio import IncompleteReadError
 from asyncio import LimitOverrunError
 from collections.abc import AsyncIterator
+from collections.abc import Iterator
 from http import HTTPStatus
+from itertools import chain
 from typing import TYPE_CHECKING
 
 from anyio import EndOfStream
@@ -212,3 +214,13 @@ class Response:
 
 	def __repr__(self) -> str:
 		return f"<Response {self.code} {self.status}>"
+
+	def get_fields(self, name: str) -> Iterator[bytes]:
+		"""
+		Return the values of each instance of a named header or trailer field
+		"""
+		name = name.lower()
+		for current, value in chain(self.headers, self.trailers):
+			assert current.islower()
+			if name == current:
+				yield value
