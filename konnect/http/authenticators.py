@@ -14,7 +14,7 @@ from http import HTTPStatus
 from typing import Protocol
 
 from .exceptions import UnauthorizedError
-from .request import CurlRequest
+from .request import Request
 from .request import ResponseT
 from .request import encode_header
 
@@ -24,7 +24,7 @@ class AuthHandler(Protocol):
 	Abstract definition of authentication handlers' entrypoints
 	"""
 
-	async def prepare_request(self, request: CurlRequest, /) -> None:
+	async def prepare_request(self, request: Request, /) -> None:
 		"""
 		Process a request instance before the request is enacted
 
@@ -35,7 +35,7 @@ class AuthHandler(Protocol):
 		...
 
 	async def process_response(
-		self, request: CurlRequest[ResponseT], response: ResponseT, /
+		self, request: Request[ResponseT], response: ResponseT, /
 	) -> ResponseT:
 		"""
 		Examine a response to a request and perform any follow-up actions
@@ -59,7 +59,7 @@ class BasicAuth:
 		self.username = username
 		self.password = password
 
-	async def prepare_request(self, request: CurlRequest, /) -> None:
+	async def prepare_request(self, request: Request, /) -> None:
 		"""
 		Insert a basic authentication header into a request
 		"""
@@ -68,7 +68,7 @@ class BasicAuth:
 		request.headers.append(encode_header(b"Authorization", val))
 
 	@staticmethod
-	async def process_response(_: CurlRequest[ResponseT], response: ResponseT, /) -> ResponseT:
+	async def process_response(_: Request[ResponseT], response: ResponseT, /) -> ResponseT:
 		"""
 		Process a response
 		"""
@@ -88,7 +88,7 @@ class BearerTokenAuth:
 	def __init__(self, token: bytes|str) -> None:
 		self.token = token.encode("ascii") if isinstance(token, str) else token
 
-	async def prepare_request(self, request: CurlRequest, /) -> None:
+	async def prepare_request(self, request: Request, /) -> None:
 		"""
 		Insert a bearer token authentication header into a request
 		"""
@@ -96,7 +96,7 @@ class BearerTokenAuth:
 		request.headers.append(encode_header(b"Authorization", val))
 
 	@staticmethod
-	async def process_response(_: CurlRequest[ResponseT], response: ResponseT, /) -> ResponseT:
+	async def process_response(_: Request[ResponseT], response: ResponseT, /) -> ResponseT:
 		"""
 		Process a response
 		"""

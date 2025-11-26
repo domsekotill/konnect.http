@@ -116,7 +116,10 @@ class Request(Generic[ResponseT]):
 		*,
 		response_class: type[ResponseT] = Response,
 	) -> None:
-		self._request = CurlRequest(session, method, url, response_class)
+		self._session = session
+		self._method = method
+		self._url = url
+		self._request = CurlRequest(self, response_class)
 		self._writer: BodySendStream|None = None
 
 	def __repr__(self) -> str:
@@ -125,28 +128,28 @@ class Request(Generic[ResponseT]):
 	@property
 	def session(self) -> Session:
 		"""
-		Wrap the underlying request's session attribute
+		The session to use with this request
 		"""
-		return self._request.session
+		return self._session
 
 	@property
 	def method(self) -> Method:
 		"""
-		Wrap the underlying request's method attribute
+		The request HTTP method
 		"""
-		return self._request.method
+		return self._method
 
 	@property
 	def url(self) -> str:
 		"""
-		Wrap the underlying request's url attribute
+		The request URL
 		"""
-		return self._request.url
+		return self._url
 
 	@property
 	def headers(self) -> list[bytes]:
 		"""
-		Wrap the underlying request's header list attribute
+		The request headers
 		"""
 		return self._request.headers
 
@@ -177,8 +180,8 @@ class Request(Generic[ResponseT]):
 
 		Signal an EOF by writing b""
 		"""
-		if not self._request.method.is_upload():
-			raise RuntimeError(f"cannot write to request method {self._request.method}")
+		if not self.method.is_upload():
+			raise RuntimeError(f"cannot write to request method {self.method}")
 		if not self._writer:
 			self._writer = await self.body()
 		await self._writer.send(data)
@@ -234,14 +237,13 @@ class CurlRequest(Generic[ResponseT]):
 	It is not intended to be used directly by users.
 	"""
 
-	def __init__(
-		self, session: Session, method: Method, url: str, response_class: type[ResponseT]
-	) -> None:
-		self.session = session
-		self.method = method
-		self.url = url
+	def __init__(self, request: Request, response_class: type[ResponseT]) -> None:
+		self.request = request
+		self.session = request.session
+		self.method = request.method
+		self.url = request.url
 		self.headers = list[bytes]()
-		self.auth = get_authenticator(session.auth, url)
+		self.auth = get_authenticator(request.session.auth, request.url)
 		self._response_class = response_class
 		self._handle: ConfigHandle|None = None
 		self._stream: BodySendStream|None = None
@@ -457,7 +459,7 @@ class CurlRequest(Generic[ResponseT]):
 		# Progress the request to the first checkpoint phase: WRITE_BODY_AWAIT
 		assert self._phase == Phase.INITIAL, self._phase
 		if auth := self.auth:
-			await auth.prepare_request(self)
+			await auth.prepare_request(self.request)
 		self._phase = Phase.WRITE_HEADERS
 		phase_response = await self.session.multi.process(self)
 		assert isinstance(phase_response, BodySendStream | Response), phase_response
@@ -490,7 +492,7 @@ class CurlRequest(Generic[ResponseT]):
 			resp = await self.session.multi.process(self)
 		assert isinstance(resp, Response)
 		if auth := self.auth:
-			resp = await auth.process_response(self, resp)
+			resp = await auth.process_response(self.request, resp)
 		return resp
 
 	async def get_data(self) -> bytes:
