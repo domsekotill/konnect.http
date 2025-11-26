@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Generic
 from typing import Literal
+from typing import Protocol
 from typing import Self
 from typing import TypeAlias
 from typing import TypeVar
@@ -43,7 +44,6 @@ from .response import ReadStream
 from .response import Response
 
 if TYPE_CHECKING:
-	from .authenticators import AuthHandler
 	from .session import Session
 
 ServiceIdentifier: TypeAlias = tuple[Literal["http", "https"], str]
@@ -101,6 +101,35 @@ class Phase(Enum):
 	READ_TRAILERS = auto()
 
 
+class Hook(Protocol):
+	"""
+	Abstract definition of request and response hooks
+	"""
+
+	async def prepare_request(self, request: Request, /) -> None:
+		"""
+		Process a request instance before the request is enacted
+
+		This method can be used by handlers to modify requests (such as adding headers or
+		adding session cookies); it is a coroutine to allow handlers to inject pre-requests
+		(such as an auth-flow) before the request.  Any such flow SHOULD use the request's
+		session.
+		"""
+		...
+
+	async def process_response(
+		self, request: Request[ResponseT], response: ResponseT, /
+	) -> ResponseT:
+		"""
+		Examine a response to a request and perform any follow-up actions
+
+		This method may return the passed response if no further actions need to be taken;
+		or further requests can be made if necessary, after which a new successful response
+		to an identical request must be returned.
+		"""
+		...
+
+
 class Request(Generic[ResponseT]):
 	"""
 	An HTTP request
@@ -153,7 +182,7 @@ class Request(Generic[ResponseT]):
 		"""
 		return self._request.headers
 
-	def set_auth_handler(self, handler: AuthHandler) -> None:
+	def set_auth_handler(self, handler: Hook) -> None:
 		"""
 		Add an authentication handler to a request
 		"""
@@ -540,11 +569,11 @@ def get_transport(
 
 
 def get_authenticator(
-	authenticators: Mapping[ServiceIdentifier, AuthHandler],
+	authenticators: Mapping[ServiceIdentifier, Hook],
 	url: str,
-) -> AuthHandler|None:
+) -> Hook | None:
 	"""
-	For a given http:// or https:// URL, return any `AuthHandler` associated with it
+	For a given http:// or https:// URL, return any authentication `Hook` associated with it
 	"""
 	parts = urlparse(url)
 	if parts.hostname is None:
