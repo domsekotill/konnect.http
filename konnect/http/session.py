@@ -17,7 +17,7 @@ HTTP method), and awaiting a response from them.
 """
 
 from copy import copy
-from typing import ClassVar
+from typing import Generic
 from typing import Self
 from urllib.parse import urlparse
 
@@ -32,12 +32,13 @@ from .cookies import Cookie
 from .exceptions import UnsupportedSchemeError
 from .request import Method
 from .request import Request
+from .request import ResponseT
 from .request import ServiceIdentifier
 from .request import TransportInfo
 from .response import Response
 
 
-class Session:
+class Session(Generic[ResponseT]):
 	"""
 	A shared request state class
 
@@ -48,9 +49,8 @@ class Session:
 	created; either option is safe in a single threaded environment but `Multi` objects
 	must not be shared between threads.
 
-	Users may also inject a subclass of `Request` to be used by the various methods that
-	return `Response` objects; the return object is the result of calling
-	`Request.get_response()`.
+	Users may also inject a subclass of `Response` to be returned by the various methods
+	that return `Response` objects.
 	"""
 
 	# TODO(dom): cookiejars
@@ -59,18 +59,16 @@ class Session:
 	# TODO(dom): proxies
 	# https://code.kodo.org.uk/konnect/konnect.http/-/issues/12
 
-	default_request_class: ClassVar[type[Request]]
-
 	def __init_subclass__(cls, *, request_class: type[Request] = Request) -> None:
 		cls.default_request_class = request_class
 
 	def __init__(
 		self, *,
 		multi: Multi|None = None,
-		request_class: type[Request] | None = None,
+		response_class: type[ResponseT] = Response,
 	) -> None:
 		self.multi = multi or Multi()
-		self.request_class = request_class or self.default_request_class
+		self.response_class = response_class
 		self.timeout: Quantity[Time] = 0 @ SECONDS
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 		self.transports = dict[ServiceIdentifier, TransportInfo]()
@@ -92,52 +90,52 @@ class Session:
 		"""
 		return copy(self)
 
-	async def head(self, url: str) -> Response:
+	async def head(self, url: str) -> ResponseT:
 		"""
 		Perform an HTTP HEAD request
 		"""
-		req = self.request_class(self, Method.HEAD, url)
+		req = Request(self, Method.HEAD, url, response_class=self.response_class)
 		return await req.get_response()
 
-	async def get(self, url: str) -> Response:
+	async def get(self, url: str) -> ResponseT:
 		"""
 		Perform an HTTP GET request
 		"""
-		req = self.request_class(self, Method.GET, url)
+		req = Request(self, Method.GET, url, response_class=self.response_class)
 		return await req.get_response()
 
-	async def put(self, url: str, data: bytes) -> Response:
+	async def put(self, url: str, data: bytes) -> ResponseT:
 		"""
 		Perform a simple HTTP PUT request with in-memory data
 		"""
-		req = self.request_class(self, Method.PUT, url)
+		req = Request(self, Method.PUT, url, response_class=self.response_class)
 		async with await req.body() as body:
 			await body.send(data)
 		return await req.get_response()
 
-	async def post(self, url: str, data: bytes) -> Response:
+	async def post(self, url: str, data: bytes) -> ResponseT:
 		"""
 		Perform a simple HTTP POST request with in-memory data
 		"""
-		req = self.request_class(self, Method.POST, url)
+		req = Request(self, Method.POST, url, response_class=self.response_class)
 		async with await req.body() as body:
 			await body.send(data)
 		return await req.get_response()
 
-	async def patch(self, url: str, data: bytes) -> Response:
+	async def patch(self, url: str, data: bytes) -> ResponseT:
 		"""
 		Perform a simple HTTP PATCH request with in-memory data
 		"""
-		req = self.request_class(self, Method.PATCH, url)
+		req = Request(self, Method.PATCH, url, response_class=self.response_class)
 		async with await req.body() as body:
 			await body.send(data)
 		return await req.get_response()
 
-	async def delete(self, url: str) -> Response:
+	async def delete(self, url: str) -> ResponseT:
 		"""
 		Perform an HTTP DELETE request
 		"""
-		req = self.request_class(self, Method.DELETE, url)
+		req = Request(self, Method.DELETE, url, response_class=self.response_class)
 		return await req.get_response()
 
 	def add_redirect(self, url: str, target: TransportInfo) -> None:

@@ -15,8 +15,8 @@ from typing import Protocol
 
 from .exceptions import UnauthorizedError
 from .request import CurlRequest
+from .request import ResponseT
 from .request import encode_header
-from .response import Response
 
 
 class AuthHandler(Protocol):
@@ -34,7 +34,9 @@ class AuthHandler(Protocol):
 		"""
 		...
 
-	async def process_response(self, request: CurlRequest, response: Response, /) -> Response:
+	async def process_response(
+		self, request: CurlRequest[ResponseT], response: ResponseT, /
+	) -> ResponseT:
 		"""
 		Examine a response to a request and perform any follow-up actions
 
@@ -66,7 +68,7 @@ class BasicAuth:
 		request.headers.append(encode_header(b"Authorization", val))
 
 	@staticmethod
-	async def process_response(_: CurlRequest, response: Response, /) -> Response:
+	async def process_response(_: CurlRequest[ResponseT], response: ResponseT, /) -> ResponseT:
 		"""
 		Process a response
 		"""
@@ -94,7 +96,7 @@ class BearerTokenAuth:
 		request.headers.append(encode_header(b"Authorization", val))
 
 	@staticmethod
-	async def process_response(_: CurlRequest, response: Response, /) -> Response:
+	async def process_response(_: CurlRequest[ResponseT], response: ResponseT, /) -> ResponseT:
 		"""
 		Process a response
 		"""

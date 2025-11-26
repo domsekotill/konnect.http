@@ -23,9 +23,11 @@ from ipaddress import IPv6Address
 from os import fspath
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Generic
 from typing import Literal
 from typing import Self
 from typing import TypeAlias
+from typing import TypeVar
 from urllib.parse import urlparse
 from warnings import warn
 
@@ -46,6 +48,8 @@ if TYPE_CHECKING:
 
 ServiceIdentifier: TypeAlias = tuple[Literal["http", "https"], str]
 TransportInfo: TypeAlias = tuple[IPv4Address | IPv6Address | str, int] | Path
+
+ResponseT = TypeVar("ResponseT", bound=Response)
 
 
 __all__ = [
@@ -97,15 +101,22 @@ class Phase(Enum):
 	READ_TRAILERS = auto()
 
 
-class Request:
+class Request(Generic[ResponseT]):
 	"""
 	An HTTP request
 	"""
 
 	# This is the user-callable API for requests
 
-	def __init__(self, session: Session, method: Method, url: str) -> None:
-		self._request = CurlRequest(session, method, url)
+	def __init__(
+		self,
+		session: Session,
+		method: Method,
+		url: str,
+		*,
+		response_class: type[ResponseT] = Response,
+	) -> None:
+		self._request = CurlRequest(session, method, url, response_class)
 		self._writer: BodySendStream|None = None
 
 	def __repr__(self) -> str:
@@ -172,7 +183,7 @@ class Request:
 			self._writer = await self.body()
 		await self._writer.send(data)
 
-	async def get_response(self) -> Response:
+	async def get_response(self) -> ResponseT:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
@@ -216,22 +227,25 @@ class BodySendStream:
 		await self._write(data)
 
 
-class CurlRequest:
+class CurlRequest(Generic[ResponseT]):
 	"""
 	Implementation of the `konnect.curl.Request` interface, callbacks and internal API
 
 	It is not intended to be used directly by users.
 	"""
 
-	def __init__(self, session: Session, method: Method, url: str) -> None:
+	def __init__(
+		self, session: Session, method: Method, url: str, response_class: type[ResponseT]
+	) -> None:
 		self.session = session
 		self.method = method
 		self.url = url
 		self.headers = list[bytes]()
 		self.auth = get_authenticator(session.auth, url)
+		self._response_class = response_class
 		self._handle: ConfigHandle|None = None
 		self._stream: BodySendStream|None = None
-		self._response: Response|None = None
+		self._response: ResponseT | None = None
 		self._phase = Phase.INITIAL
 		self._upcomplete = False
 		self._sentall = False
@@ -322,7 +336,7 @@ class CurlRequest:
 				return self._data != b""
 		return False
 
-	def get_update(self) -> BodySendStream|Response|bytes|None:
+	def get_update(self) -> BodySendStream | ResponseT | bytes | None:
 		"""
 		Return a waiting response or raise `LookupError` if there is none
 
@@ -405,7 +419,7 @@ class CurlRequest:
 		if data.startswith(b"HTTP/"):
 			self._phase = Phase.READ_HEADERS
 			stream = ReadStream(self)
-			self._response = Response(data.decode("ascii"), stream)
+			self._response = self._response_class(data.decode("ascii"), stream)
 			return
 		assert self._response is not None
 		if data == b"\r\n":
@@ -439,7 +453,7 @@ class CurlRequest:
 	def _process_body(self, data: bytes) -> None:
 		self._data += data
 
-	async def _start_request(self) -> BodySendStream|Response:
+	async def _start_request(self) -> BodySendStream | ResponseT:
 		# Progress the request to the first checkpoint phase: WRITE_BODY_AWAIT
 		assert self._phase == Phase.INITIAL, self._phase
 		if auth := self.auth:
@@ -459,7 +473,7 @@ class CurlRequest:
 			raise ValueError(msg)
 		return stream
 
-	async def get_response(self) -> Response:
+	async def get_response(self) -> ResponseT:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
