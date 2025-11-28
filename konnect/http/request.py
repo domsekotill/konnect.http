@@ -36,7 +36,6 @@ from konnect.curl import MILLISECONDS
 from konnect.curl.abc import ConfigHandle
 from konnect.curl.abc import GetInfoHandle
 from pycurl import *
-from typing_extensions import deprecated
 
 from .cookies import check_cookie
 from .exceptions import UnsupportedSchemeError
@@ -149,7 +148,6 @@ class Request(Generic[ResponseT]):
 		self._method = method
 		self._url = url
 		self._request = CurlRequest(self, response_class)
-		self._writer: BodySendStream|None = None
 
 	def __repr__(self) -> str:
 		return f"<Request {self._request.method.name} {self._request.url}>"
@@ -202,25 +200,10 @@ class Request(Generic[ResponseT]):
 		"""
 		return await self._request.get_writer()
 
-	@deprecated("use Request.body() as an async context to get a send stream")
-	async def write(self, data: bytes, /) -> None:
-		"""
-		Write data to an upload request
-
-		Signal an EOF by writing b""
-		"""
-		if not self.method.is_upload():
-			raise RuntimeError(f"cannot write to request method {self.method}")
-		if not self._writer:
-			self._writer = await self.body()
-		await self._writer.send(data)
-
 	async def get_response(self) -> ResponseT:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
-		if self._writer:
-			await self._writer.aclose()
 		return await self._request.get_response()
 
 
