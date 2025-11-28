@@ -180,6 +180,15 @@ class Request(Generic[ResponseT]):
 		"""
 		return self._request.headers
 
+	def add_header(self, name: str, value: bytes | str) -> None:
+		"""
+		Add an HTTP header by name to send with the request
+		"""
+		header = b": ".join(
+			(name.encode("ascii"), value if isinstance(value, bytes) else value.encode("ascii"))
+		)
+		self._request.headers.append(header)
+
 	def set_auth_handler(self, handler: Hook) -> None:
 		"""
 		Add an authentication handler to a request
