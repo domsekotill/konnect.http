@@ -1,20 +1,26 @@
-# Copyright 2023, 2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023, 2025-2026  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Tokenising of cookies and attributes from "Set-Cookie:" HTTP headers
 """
 
+from __future__ import annotations
+
 import re
-from collections.abc import Iterator
 from datetime import datetime as DateTime
 from datetime import timedelta as TimeDelta
 from enum import Enum
 from enum import auto
+from typing import TYPE_CHECKING
 from typing import Literal
 from typing import TypeAlias
 from urllib.parse import unquote as urldecode
 
 from .dates import dateparse
+
+if TYPE_CHECKING:
+	from collections.abc import Iterator
+
 
 __all__ = ["tokenise"]
 

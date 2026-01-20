@@ -1,4 +1,4 @@
-# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2026  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Module providing a `konnect.curl.Request` implementation for HTTP requests
@@ -12,9 +12,6 @@ require users to interact directly with the classes supplied in this module.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from collections.abc import Callable
-from collections.abc import Mapping
 from enum import Enum
 from enum import Flag
 from enum import auto
@@ -33,8 +30,6 @@ from urllib.parse import urlparse
 from warnings import warn
 
 from konnect.curl import MILLISECONDS
-from konnect.curl.abc import ConfigHandle
-from konnect.curl.abc import GetInfoHandle
 from pycurl import *
 
 from .cookies import check_cookie
@@ -43,6 +38,13 @@ from .response import ReadStream
 from .response import Response
 
 if TYPE_CHECKING:
+	from collections.abc import Awaitable
+	from collections.abc import Callable
+	from collections.abc import Mapping
+
+	from konnect.curl.abc import ConfigHandle
+	from konnect.curl.abc import GetInfoHandle
+
 	from .session import Session
 
 ServiceIdentifier: TypeAlias = tuple[Literal["http", "https"], str]

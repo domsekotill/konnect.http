@@ -1,4 +1,4 @@
-# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2026  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Response classes for HTTP requests
@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from asyncio import IncompleteReadError
 from asyncio import LimitOverrunError
-from collections.abc import AsyncIterator
-from collections.abc import Iterator
 from http import HTTPStatus
 from itertools import chain
 from typing import TYPE_CHECKING
@@ -21,8 +19,10 @@ from typing import TYPE_CHECKING
 from anyio import EndOfStream
 
 if TYPE_CHECKING:
+	from collections.abc import AsyncIterator
 	from collections.abc import Awaitable
 	from collections.abc import Callable
+	from collections.abc import Iterator
 	from typing import ParamSpec
 
 	from .request import CurlRequest
