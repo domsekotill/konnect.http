@@ -17,7 +17,6 @@ from enum import Flag
 from enum import auto
 from ipaddress import IPv4Address
 from ipaddress import IPv6Address
-from os import fspath
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Generic
@@ -30,6 +29,11 @@ from urllib.parse import urlparse
 from warnings import warn
 
 from konnect.curl import MILLISECONDS
+from konnect.curl.certificates import CertificateSource
+from konnect.curl.certificates import CommonEncodedSource
+from konnect.curl.certificates import PrivateKeySource
+from konnect.curl.certificates import add_ca_certificate
+from konnect.curl.certificates import add_client_certificate
 from pycurl import *
 
 from .cookies import check_cookie
@@ -176,6 +180,35 @@ class Request(Generic[ResponseT]):
 		return self._url
 
 	@property
+	def certificate(
+		self,
+	) -> (
+		tuple[CertificateSource, PrivateKeySource]
+		| tuple[CommonEncodedSource]
+		| CommonEncodedSource
+		| None
+	):
+		"""
+		A client certificate to authenticate to a server with
+
+		The value may be a tuple of a certificate source and a private key source, or
+		a single value containing both the certificate and the key packed in the same source.
+
+		See `konnect.curl.certificates` for more details.
+		"""
+		return self._request.certificate
+
+	@certificate.setter
+	def certificate(
+		self,
+		certificate: tuple[CertificateSource, PrivateKeySource]
+		| tuple[CommonEncodedSource]
+		| CommonEncodedSource
+		| None,
+	) -> None:
+		self._request.certificate = certificate
+
+	@property
 	def headers(self) -> list[bytes]:
 		"""
 		The request headers
@@ -267,6 +300,12 @@ class CurlRequest(Generic[ResponseT]):
 		self.url = request.url
 		self.headers = list[bytes]()
 		self.auth = get_authenticator(request.session.auth, request.url)
+		self.certificate: (
+			tuple[CertificateSource, PrivateKeySource]
+			| tuple[CommonEncodedSource]
+			| CommonEncodedSource
+			| None
+		) = None
 		self._response_class = response_class
 		self._handle: ConfigHandle|None = None
 		self._stream: BodySendStream|None = None
@@ -327,13 +366,21 @@ class CurlRequest(Generic[ResponseT]):
 		handle.setopt(DEFAULT_PROTOCOL, "https")
 		# handle.setopt(PROTOCOLS_STR, "http,https")
 		# handle.setopt(REDIR_PROTOCOLS_STR, "http,https")
-		handle.setopt(PROTOCOLS, PROTO_HTTP|PROTO_HTTPS)
-		handle.setopt(REDIR_PROTOCOLS, PROTO_HTTP|PROTO_HTTPS)
+		handle.setopt(PROTOCOLS, PROTO_HTTP | PROTO_HTTPS)
+		handle.setopt(REDIR_PROTOCOLS, PROTO_HTTP | PROTO_HTTPS)
 		handle.setopt(HEADERFUNCTION, self._process_header)
 		handle.setopt(WRITEFUNCTION, self._process_body)
 
-		if (cacert := self.session.ca_certificates):
-			handle.setopt(CAPATH if cacert.is_dir() else CAINFO, fspath(cacert))
+		match self.certificate:
+			case None:
+				pass
+			case [cert, key]:
+				add_client_certificate(handle, cert, key)
+			case [cert] | cert:
+				add_client_certificate(handle, cert)
+
+		if cacert := self.session.ca_certificates:
+			add_ca_certificate(handle, cacert)
 
 		if self.session.user_agent is not None:
 			handle.setopt(USERAGENT, self.session.user_agent)

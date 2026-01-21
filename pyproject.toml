@@ -22,7 +22,7 @@ requires-python = "~=3.11"
 dependencies = [
 	"anyio ~=4.0",
 	"kodo.quantities",
-	"konnect.curl ~=0.2.0",
+	"konnect.curl ~=0.2.3",
 ]
 
 
@@ -40,6 +40,7 @@ ignore-init = true
 [tool.pyright]
 pythonVersion = "3.11"
 include = ["konnect", "tests"]
+reportMissingModuleSource = false
 
 
 [tool.coverage.run]

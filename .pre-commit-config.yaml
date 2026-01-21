@@ -86,7 +86,7 @@ repos:
     additional_dependencies: &deps
     - anyio
     - kodo.quantities
-    - types-konnect.curl ~=0.2.0
+    - types-konnect.curl ~=0.2.3
     - types-pycurl
   - id: pyright
     additional_dependencies: *deps
