@@ -216,6 +216,8 @@ class Response:
 				self.status = self.code.phrase
 			case _:
 				raise ValueError
+		assert stream.request is not None
+		self.request = stream.request.request
 		self.stream = stream
 		self.headers = list[tuple[str, bytes]]()
 		self.trailers = list[tuple[str, bytes]]()
