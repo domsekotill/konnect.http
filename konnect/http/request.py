@@ -15,6 +15,7 @@ from __future__ import annotations
 from enum import Enum
 from enum import Flag
 from enum import auto
+from http import HTTPStatus
 from ipaddress import IPv4Address
 from ipaddress import IPv6Address
 from pathlib import Path
@@ -232,7 +233,7 @@ class Request(Generic[ResponseT]):
 			raise RuntimeError(msg)
 		return await self._request.get_writer()
 
-	async def get_response(self) -> ResponseT:
+	async def get_response(self, *, follow_redirects: bool = False) -> ResponseT:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
@@ -241,7 +242,26 @@ class Request(Generic[ResponseT]):
 		if request is None:
 			msg = f"{type(self)}.get_response() already called on {self}"
 			raise RuntimeError(msg)
-		return await request.get_response()
+		response = await request.get_response()
+		if not follow_redirects:
+			return response
+		cls = type(self)
+		method = self._method
+		while redirect := response.get_redirect():
+			match response.code:
+				case HTTPStatus.MOVED_PERMANENTLY:
+					msg = f"Moved permanently (301): {response.request.url} -> {redirect}"
+					warn(msg, stacklevel=2)
+					method = Method.HEAD if method is Method.HEAD else Method.GET
+				case HTTPStatus.PERMANENT_REDIRECT:
+					msg = f"Permanently redirected (308): {response.request.url} -> {redirect}"
+					warn(msg, stacklevel=2)
+				case HTTPStatus.FOUND | HTTPStatus.SEE_OTHER:
+					method = Method.HEAD if method is Method.HEAD else Method.GET
+			response = await cls(
+				self._session, method, redirect, response_class=self.response_class
+			).get_response()
+		return response
 
 
 class BodySendStream:
