@@ -29,6 +29,14 @@ if TYPE_CHECKING:
 
 	P = ParamSpec("P")
 
+REDIRECT_CODES = [
+	HTTPStatus.MOVED_PERMANENTLY,
+	HTTPStatus.FOUND,
+	HTTPStatus.SEE_OTHER,
+	HTTPStatus.TEMPORARY_REDIRECT,
+	HTTPStatus.PERMANENT_REDIRECT,
+]
+
 
 def _check_non_empty(func: Callable[P, Awaitable[bytes]]) -> Callable[P, Awaitable[bytes]]:
 	if not __debug__:
@@ -224,3 +232,14 @@ class Response:
 			assert current.islower()
 			if name == current:
 				yield value
+
+	def get_redirect(self) -> str | None:
+		"""
+		Return the URL that a redirect response is directed to, or None for non-redirect responses
+		"""
+		if self.code not in REDIRECT_CODES:
+			return None
+		for name, value in self.headers:
+			assert name.islower()
+			if name == "location":
+				return value.decode("ascii")
