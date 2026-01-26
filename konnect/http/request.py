@@ -153,10 +153,19 @@ class Request(Generic[ResponseT]):
 		self._session = session
 		self._method = method
 		self._url = url
-		self._request = CurlRequest(self, response_class)
+		self.response_class = response_class
+		self.certificate: (
+			tuple[CertificateSource, PrivateKeySource]
+			| tuple[CommonEncodedSource]
+			| CommonEncodedSource
+			| None
+		) = None
+		self._headers = list[bytes]()
+		self._request = CurlRequest(self)
+		self._request.auth = get_authenticator(session.auth, url)
 
 	def __repr__(self) -> str:
-		return f"<Request {self._request.method.name} {self._request.url}>"
+		return f"<Request {self.method.name} {self.url}>"
 
 	@property
 	def session(self) -> Session:
@@ -180,40 +189,11 @@ class Request(Generic[ResponseT]):
 		return self._url
 
 	@property
-	def certificate(
-		self,
-	) -> (
-		tuple[CertificateSource, PrivateKeySource]
-		| tuple[CommonEncodedSource]
-		| CommonEncodedSource
-		| None
-	):
-		"""
-		A client certificate to authenticate to a server with
-
-		The value may be a tuple of a certificate source and a private key source, or
-		a single value containing both the certificate and the key packed in the same source.
-
-		See `konnect.curl.certificates` for more details.
-		"""
-		return self._request.certificate
-
-	@certificate.setter
-	def certificate(
-		self,
-		certificate: tuple[CertificateSource, PrivateKeySource]
-		| tuple[CommonEncodedSource]
-		| CommonEncodedSource
-		| None,
-	) -> None:
-		self._request.certificate = certificate
-
-	@property
 	def headers(self) -> list[bytes]:
 		"""
 		The request headers
 		"""
-		return self._request.headers
+		return self._headers
 
 	def add_header(self, name: str, value: bytes | str) -> None:
 		"""
@@ -222,12 +202,17 @@ class Request(Generic[ResponseT]):
 		header = b": ".join(
 			(name.encode("ascii"), value if isinstance(value, bytes) else value.encode("ascii"))
 		)
-		self._request.headers.append(header)
+		self._headers.append(header)
 
 	def set_auth_handler(self, handler: Hook) -> None:
 		"""
 		Add an authentication handler to a request
 		"""
+		if self._request is None:
+			msg = (
+				f"{type(self)}.set_auth_handler() cannot be called after {type(self)}.get_response()"
+			)
+			raise RuntimeError(msg)
 		self._request.auth = handler
 
 	async def body(self) -> BodySendStream:
@@ -242,13 +227,21 @@ class Request(Generic[ResponseT]):
 		...         await stream.send(b"...")
 		...     return await req.get_response()
 		"""
+		if self._request is None:
+			msg = f"{type(self)}.body() cannot be called after {type(self)}.get_response()"
+			raise RuntimeError(msg)
 		return await self._request.get_writer()
 
 	async def get_response(self) -> ResponseT:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
-		return await self._request.get_response()
+		# Drop CurlRequest object so it can be GC'd once the Response.stream is closed
+		request, self._request = self._request, None
+		if request is None:
+			msg = f"{type(self)}.get_response() already called on {self}"
+			raise RuntimeError(msg)
+		return await request.get_response()
 
 
 class BodySendStream:
@@ -293,20 +286,9 @@ class CurlRequest(Generic[ResponseT]):
 	It is not intended to be used directly by users.
 	"""
 
-	def __init__(self, request: Request, response_class: type[ResponseT]) -> None:
+	def __init__(self, request: Request[ResponseT]) -> None:
 		self.request = request
-		self.session = request.session
-		self.method = request.method
-		self.url = request.url
-		self.headers = list[bytes]()
-		self.auth = get_authenticator(request.session.auth, request.url)
-		self.certificate: (
-			tuple[CertificateSource, PrivateKeySource]
-			| tuple[CommonEncodedSource]
-			| CommonEncodedSource
-			| None
-		) = None
-		self._response_class = response_class
+		self.auth: Hook | None = None
 		self._handle: ConfigHandle|None = None
 		self._stream: BodySendStream|None = None
 		self._response: ResponseT | None = None
@@ -323,9 +305,12 @@ class CurlRequest(Generic[ResponseT]):
 		"""
 		self._handle = handle
 
-		handle.setopt(URL, self.url)
+		url = self.request.url
+		session = self.request.session
 
-		match self.method:
+		handle.setopt(URL, url)
+
+		match self.request.method:
 			case Method.HEAD:
 				handle.setopt(NOBODY, True)
 			case Method.PUT:
@@ -346,7 +331,7 @@ class CurlRequest(Generic[ResponseT]):
 			case Method.DELETE:
 				handle.setopt(CUSTOMREQUEST, "DELETE")
 
-		match get_transport(self.session.transports, self.url):
+		match get_transport(session.transports, url):
 			case Path() as path:
 				handle.setopt(UNIX_SOCKET_PATH, path.as_posix())
 			case [(IPv4Address() | IPv6Address() | str()) as host, int(port)]:
@@ -359,8 +344,8 @@ class CurlRequest(Generic[ResponseT]):
 		handle.setopt(VERBOSE, 0)
 		handle.setopt(NOPROGRESS, 1)
 
-		handle.setopt(TIMEOUT_MS, self.session.timeout // MILLISECONDS)
-		handle.setopt(CONNECTTIMEOUT_MS, self.session.connect_timeout // MILLISECONDS)
+		handle.setopt(TIMEOUT_MS, session.timeout // MILLISECONDS)
+		handle.setopt(CONNECTTIMEOUT_MS, session.connect_timeout // MILLISECONDS)
 
 		handle.setopt(PIPEWAIT, 1)
 		handle.setopt(DEFAULT_PROTOCOL, "https")
@@ -371,7 +356,7 @@ class CurlRequest(Generic[ResponseT]):
 		handle.setopt(HEADERFUNCTION, self._process_header)
 		handle.setopt(WRITEFUNCTION, self._process_body)
 
-		match self.certificate:
+		match self.request.certificate:
 			case None:
 				pass
 			case [cert, key]:
@@ -379,14 +364,14 @@ class CurlRequest(Generic[ResponseT]):
 			case [cert] | cert:
 				add_client_certificate(handle, cert)
 
-		if cacert := self.session.ca_certificates:
+		if cacert := session.ca_certificates:
 			add_ca_certificate(handle, cacert)
 
-		if self.session.user_agent is not None:
-			handle.setopt(USERAGENT, self.session.user_agent)
+		if session.user_agent is not None:
+			handle.setopt(USERAGENT, session.user_agent)
 
-		if self.headers:
-			handle.setopt(HTTPHEADER, self.headers)
+		if self.request.headers:
+			handle.setopt(HTTPHEADER, self.request.headers)
 
 	def has_update(self) -> bool:
 		"""
@@ -471,7 +456,7 @@ class CurlRequest(Generic[ResponseT]):
 		assert self._handle is not None
 		self._sentall = False
 		self._handle.pause(PAUSE_CONT)
-		val = await self.session.multi.process(self)
+		val = await self.request.session.multi.process(self)
 		assert val is None, val
 
 	def _process_input(self, size: int) -> bytes|int:
@@ -491,7 +476,7 @@ class CurlRequest(Generic[ResponseT]):
 		if data.startswith(b"HTTP/"):
 			self._phase = Phase.READ_HEADERS
 			stream = ReadStream(self)
-			self._response = self._response_class(data.decode("ascii"), stream)
+			self._response = self.request.response_class(data.decode("ascii"), stream)
 			return
 		assert self._response is not None
 		if data == b"\r\n":
@@ -531,7 +516,7 @@ class CurlRequest(Generic[ResponseT]):
 		if auth := self.auth:
 			await auth.prepare_request(self.request)
 		self._phase = Phase.WRITE_HEADERS
-		phase_response = await self.session.multi.process(self)
+		phase_response = await self.request.session.multi.process(self)
 		assert isinstance(phase_response, BodySendStream | Response), phase_response
 		return phase_response
 
@@ -541,7 +526,7 @@ class CurlRequest(Generic[ResponseT]):
 			raise RuntimeError(msg)
 		stream = await self._start_request()
 		if not isinstance(stream, BodySendStream):
-			msg = f"requests of type {self.method} do not support sending body data"
+			msg = f"requests of type {self.request.method} do not support sending body data"
 			raise ValueError(msg)
 		return stream
 
@@ -551,15 +536,17 @@ class CurlRequest(Generic[ResponseT]):
 		"""
 		# Having the if-else condition this way around makes type checking easier
 		if self._phase != Phase.INITIAL:
-			resp = await self.session.multi.process(self)
+			resp = await self.request.session.multi.process(self)
 		else:
 			resp = await self._start_request()
 		if isinstance(resp, BodySendStream):
-			msg = f"uploading an empty body with a {self.method} request, " \
+			msg = (
+				f"uploading an empty body with a {self.request.method} request, "
 				f"did you mean to use Request.body() to get a BodySendStream?"
+			)
 			warn(msg, stacklevel=3)
 			await resp.aclose()
-			resp = await self.session.multi.process(self)
+			resp = await self.request.session.multi.process(self)
 		assert isinstance(resp, Response)
 		if auth := self.auth:
 			resp = await auth.process_response(self.request, resp)
@@ -571,7 +558,7 @@ class CurlRequest(Generic[ResponseT]):
 		"""
 		if self._phase != Phase.READ_BODY:
 			raise RuntimeError("get_data() can only be called after get_response()")
-		data = await self.session.multi.process(self)
+		data = await self.request.session.multi.process(self)
 		assert isinstance(data, bytes), repr(data)
 		return data
 
@@ -581,8 +568,8 @@ class CurlRequest(Generic[ResponseT]):
 		"""
 		return b"; ".join(
 			bytes(cookie)
-			for cookie in self.session.cookies
-			if check_cookie(cookie, self.url)
+			for cookie in self.request.session.cookies
+			if check_cookie(cookie, self.request.url)
 		)
 
 
