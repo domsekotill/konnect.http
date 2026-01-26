@@ -15,6 +15,7 @@ from asyncio import LimitOverrunError
 from http import HTTPStatus
 from itertools import chain
 from typing import TYPE_CHECKING
+from urllib.parse import urljoin
 
 from anyio import EndOfStream
 
@@ -244,4 +245,4 @@ class Response:
 		for name, value in self.headers:
 			assert name.islower()
 			if name == "location":
-				return value.decode("ascii")
+				return urljoin(self.request.url, value.decode("ascii"))
