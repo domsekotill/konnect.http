@@ -1,4 +1,4 @@
-# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2026  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Sessions are the primary entrypoint for users
@@ -109,7 +109,7 @@ class Session(Generic[ResponseT]):
 		Perform a simple HTTP PUT request with in-memory data
 		"""
 		req = Request(self, Method.PUT, url, response_class=self.response_class)
-		async with await req.body() as body:
+		async with req.body() as body:
 			await body.send(data)
 		return await req.get_response()
 
@@ -118,7 +118,7 @@ class Session(Generic[ResponseT]):
 		Perform a simple HTTP POST request with in-memory data
 		"""
 		req = Request(self, Method.POST, url, response_class=self.response_class)
-		async with await req.body() as body:
+		async with req.body() as body:
 			await body.send(data)
 		return await req.get_response()
 
@@ -127,7 +127,7 @@ class Session(Generic[ResponseT]):
 		Perform a simple HTTP PATCH request with in-memory data
 		"""
 		req = Request(self, Method.PATCH, url, response_class=self.response_class)
-		async with await req.body() as body:
+		async with req.body() as body:
 			await body.send(data)
 		return await req.get_response()
 
