@@ -26,6 +26,7 @@ from typing import Protocol
 from typing import Self
 from typing import TypeAlias
 from typing import TypeVar
+from urllib.parse import urljoin
 from urllib.parse import urlparse
 from warnings import warn
 
@@ -196,6 +197,25 @@ class Request(Generic[ResponseT]):
 		"""
 		return self._headers
 
+	def copy(self, *, url: str = "", method: Method | None = None) -> Self:
+		"""
+		Return a new Request with the same configuration and optionally a new URL or method
+
+		The URL may be a relative one, in which case it will be resolved relative to the
+		current URL.
+		"""
+		cls = type(self)
+		inst = cls(
+			self._session,
+			method or self._method,
+			urljoin(self._url, url),
+			response_class=self.response_class,
+		)
+		inst.auth_hook = self.auth_hook
+		inst.certificate = self.certificate
+		inst._headers[:] = self._headers
+		return inst
+
 	def add_header(self, name: str, value: bytes | str) -> None:
 		"""
 		Add an HTTP header by name to send with the request
@@ -240,7 +260,6 @@ class Request(Generic[ResponseT]):
 		response = await request.get_response()
 		if not follow_redirects:
 			return response
-		cls = type(self)
 		method = self._method
 		while redirect := response.get_redirect():
 			match response.code:
@@ -253,9 +272,7 @@ class Request(Generic[ResponseT]):
 					warn(msg, stacklevel=2)
 				case HTTPStatus.FOUND | HTTPStatus.SEE_OTHER:
 					method = Method.HEAD if method is Method.HEAD else Method.GET
-			response = await cls(
-				self._session, method, redirect, response_class=self.response_class
-			).get_response()
+			response = await self.copy(url=redirect, method=method).get_response()
 		return response
 
 
