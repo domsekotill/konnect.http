@@ -237,6 +237,23 @@ class Response:
 			if name == current:
 				yield value
 
+	def field(self, name: str) -> str:
+		"""
+		Return all items of the named header or trailer field as a single value
+
+		All values of the field will be returned as a comma-separated list.  Note there is
+		no attempt made to check for fields that should not be lists.
+
+		Set-Cookie fields cannot be accessed this way as commas have a different meaning
+		within their structure.
+
+		See: https://www.rfc-editor.org/rfc/rfc9110#section-5.3
+		"""
+		if name.lower() == "set-cookie":
+			msg = "Set-Cookie fields cannot be accessed as a single field; use get_fields()"
+			raise ValueError(msg)
+		return ", ".join(val.decode("utf-8") for val in self.get_fields(name))
+
 	def get_redirect(self) -> str | None:
 		"""
 		Return the URL that a redirect response is directed to, or None for non-redirect responses
