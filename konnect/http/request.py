@@ -161,9 +161,9 @@ class Request(Generic[ResponseT]):
 			| CommonEncodedSource
 			| None
 		) = None
+		self.auth_hook = get_authenticator(session.auth, url)
 		self._headers = list[bytes]()
 		self._handle = CurlHandle(self)
-		self._handle.auth = get_authenticator(session.auth, url)
 
 	def __repr__(self) -> str:
 		return f"<Request {self.method.name} {self.url}>"
@@ -209,12 +209,7 @@ class Request(Generic[ResponseT]):
 		"""
 		Add an authentication handler to a request
 		"""
-		if self._handle is None:
-			msg = (
-				f"{type(self)}.set_auth_handler() cannot be called after {type(self)}.get_response()"
-			)
-			raise RuntimeError(msg)
-		self._handle.auth = handler
+		self.auth_hook = handler
 
 	async def body(self) -> BodySendStream:
 		"""
@@ -308,7 +303,6 @@ class CurlHandle(Generic[ResponseT]):
 
 	def __init__(self, request: Request[ResponseT]) -> None:
 		self.request = request
-		self.auth: Hook | None = None
 		self._handle: ConfigHandle|None = None
 		self._stream: BodySendStream|None = None
 		self._response: ResponseT | None = None
@@ -533,7 +527,7 @@ class CurlHandle(Generic[ResponseT]):
 	async def _start_request(self) -> BodySendStream | ResponseT:
 		# Progress the request to the first checkpoint phase: WRITE_BODY_AWAIT
 		assert self._phase == Phase.INITIAL, self._phase
-		if auth := self.auth:
+		if auth := self.request.auth_hook:
 			await auth.prepare_request(self.request)
 		self._phase = Phase.WRITE_HEADERS
 		phase_response = await self.request.session.multi.process(self)
@@ -568,7 +562,7 @@ class CurlHandle(Generic[ResponseT]):
 			await resp.aclose()
 			resp = await self.request.session.multi.process(self)
 		assert isinstance(resp, Response)
-		if auth := self.auth:
+		if auth := self.request.auth_hook:
 			resp = await auth.process_response(self.request, resp)
 		return resp
 
