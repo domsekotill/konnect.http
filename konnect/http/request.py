@@ -162,8 +162,8 @@ class Request(Generic[ResponseT]):
 			| None
 		) = None
 		self._headers = list[bytes]()
-		self._request = CurlRequest(self)
-		self._request.auth = get_authenticator(session.auth, url)
+		self._handle = CurlHandle(self)
+		self._handle.auth = get_authenticator(session.auth, url)
 
 	def __repr__(self) -> str:
 		return f"<Request {self.method.name} {self.url}>"
@@ -209,12 +209,12 @@ class Request(Generic[ResponseT]):
 		"""
 		Add an authentication handler to a request
 		"""
-		if self._request is None:
+		if self._handle is None:
 			msg = (
 				f"{type(self)}.set_auth_handler() cannot be called after {type(self)}.get_response()"
 			)
 			raise RuntimeError(msg)
-		self._request.auth = handler
+		self._handle.auth = handler
 
 	async def body(self) -> BodySendStream:
 		"""
@@ -228,17 +228,17 @@ class Request(Generic[ResponseT]):
 		...         await stream.send(b"...")
 		...     return await req.get_response()
 		"""
-		if self._request is None:
+		if self._handle is None:
 			msg = f"{type(self)}.body() cannot be called after {type(self)}.get_response()"
 			raise RuntimeError(msg)
-		return await self._request.get_writer()
+		return await self._handle.get_writer()
 
 	async def get_response(self, *, follow_redirects: bool = False) -> ResponseT:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
-		# Drop CurlRequest object so it can be GC'd once the Response.stream is closed
-		request, self._request = self._request, None
+		# Drop CurlHandle object so it can be GC'd once the Response.stream is closed
+		request, self._handle = self._handle, None
 		if request is None:
 			msg = f"{type(self)}.get_response() already called on {self}"
 			raise RuntimeError(msg)
@@ -293,13 +293,13 @@ class BodySendStream:
 		"""
 		Write body data to an upload request
 		"""
-		# Unlike CurlRequest.write, passing an empty string is a no-op
+		# Unlike CurlHandle.write, passing an empty string is a no-op
 		if not data:
 			return
 		await self._write(data)
 
 
-class CurlRequest(Generic[ResponseT]):
+class CurlHandle(Generic[ResponseT]):
 	"""
 	Implementation of the `konnect.curl.Request` interface, callbacks and internal API
 

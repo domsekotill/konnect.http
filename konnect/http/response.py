@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 	from collections.abc import Iterator
 	from typing import ParamSpec
 
-	from .request import CurlRequest
+	from .request import CurlHandle
 
 	P = ParamSpec("P")
 
@@ -58,8 +58,9 @@ class ReadStream:
 	require either of those interfaces, regardless of the actual async runtime used.
 	"""
 
-	def __init__(self, request: CurlRequest) -> None:
-		self.request: CurlRequest|None = request
+	def __init__(self, handle: CurlHandle) -> None:
+		self.request = handle.request
+		self._handle: CurlHandle | None = handle
 		self._buffer = b""
 
 	async def __aiter__(self) -> AsyncIterator[bytes]:
@@ -75,7 +76,7 @@ class ReadStream:
 
 		Implements `anyio.abc.AsyncResource.aclose()`
 		"""
-		self.request = None
+		self._handle = None
 
 	@_check_non_empty
 	async def _receive(self) -> bytes:
@@ -84,10 +85,10 @@ class ReadStream:
 		if self._buffer:
 			data, self._buffer = self._buffer, b""
 			return data
-		if self.request is None:
+		if self._handle is None:
 			raise EndOfStream
-		if (data := await self.request.get_data()) == b"":
-			self.request = None
+		if (data := await self._handle.get_data()) == b"":
+			self._handle = None
 			raise EndOfStream
 		return data
 
@@ -197,7 +198,7 @@ class ReadStream:
 		"""
 		Return `True` if the buffer is empty and an end-of-file has been indicated
 		"""
-		return not self._buffer and self.request is None
+		return not self._buffer and self._handle is None
 
 
 class Response:
@@ -218,7 +219,7 @@ class Response:
 			case _:
 				raise ValueError
 		assert stream.request is not None
-		self.request = stream.request.request
+		self.request = stream.request
 		self.stream = stream
 		self.headers = list[tuple[str, bytes]]()
 		self.trailers = list[tuple[str, bytes]]()
