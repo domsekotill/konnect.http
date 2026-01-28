@@ -262,6 +262,7 @@ class Request(Generic[ResponseT]):
 			return response
 		method = self._method
 		while redirect := response.get_redirect():
+			previous = response
 			match response.code:
 				case HTTPStatus.MOVED_PERMANENTLY:
 					msg = f"Moved permanently (301): {response.request.url} -> {redirect}"
@@ -273,6 +274,7 @@ class Request(Generic[ResponseT]):
 				case HTTPStatus.FOUND | HTTPStatus.SEE_OTHER:
 					method = Method.HEAD if method is Method.HEAD else Method.GET
 			response = await self.copy(url=redirect, method=method).get_response()
+			response.previous = previous
 		return response
 
 

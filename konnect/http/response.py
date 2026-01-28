@@ -223,6 +223,7 @@ class Response:
 		self.stream = stream
 		self.headers = list[tuple[str, bytes]]()
 		self.trailers = list[tuple[str, bytes]]()
+		self.previous: Response | None = None
 
 	def __repr__(self) -> str:
 		return f"<Response {self.code} {self.status}>"
