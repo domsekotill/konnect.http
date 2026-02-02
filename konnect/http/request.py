@@ -46,6 +46,7 @@ from .response import Response
 if TYPE_CHECKING:
 	from collections.abc import Awaitable
 	from collections.abc import Callable
+	from collections.abc import Iterator
 	from collections.abc import Mapping
 
 	from konnect.curl.abc import ConfigHandle
@@ -546,8 +547,8 @@ class CurlHandle(Generic[ResponseT]):
 	async def _start_request(self) -> BodySendStream | ResponseT:
 		# Progress the request to the first checkpoint phase: WRITE_BODY_AWAIT
 		assert self._phase == Phase.INITIAL, self._phase
-		if auth := self.request.auth_hook:
-			await auth.prepare_request(self.request)
+		for hook in self.get_hooks():
+			await hook.prepare_request(self.request)
 		self._phase = Phase.WRITE_HEADERS
 		phase_response = await self.request.session.multi.process(self)
 		assert isinstance(phase_response, BodySendStream | Response), phase_response
@@ -581,8 +582,8 @@ class CurlHandle(Generic[ResponseT]):
 			await resp.aclose()
 			resp = await self.request.session.multi.process(self)
 		assert isinstance(resp, Response)
-		if auth := self.request.auth_hook:
-			resp = await auth.process_response(self.request, resp)
+		for hook in self.get_hooks():
+			resp = await hook.process_response(self.request, resp)
 		return resp
 
 	async def get_data(self) -> bytes:
@@ -604,6 +605,11 @@ class CurlHandle(Generic[ResponseT]):
 			for cookie in self.request.session.cookies
 			if check_cookie(cookie, self.request.url)
 		)
+
+	def get_hooks(self) -> Iterator[Hook]:
+		if hook := self.request.auth_hook:
+			yield hook
+		yield from self.request.session.hooks
 
 
 def get_transport(

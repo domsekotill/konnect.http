@@ -1,4 +1,4 @@
-# Copyright 2023-2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023-2026  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 """
 Sessions are the primary entrypoint for users
@@ -73,6 +73,7 @@ class Session(Generic[ResponseT]):
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 		self.transports = dict[ServiceIdentifier, TransportInfo]()
 		self.auth = dict[ServiceIdentifier, Hook]()
+		self.hooks = list[Hook]()
 		self.cookies = set[Cookie]()
 		self.user_agent: str|None = None
 		self.ca_certificates = discover_ca_certs()
