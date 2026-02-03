@@ -49,6 +49,16 @@ def _check_non_empty(func: Callable[P, Awaitable[bytes]]) -> Callable[P, Awaitab
 	return wrap
 
 
+def _parse_field(field: bytes) -> tuple[str, dict[str, str]]:
+	# Return an item and parameters as a dict
+	item, *params = field.decode("utf-8").split(";")
+	return item, {
+		key.lstrip(): value.rstrip()
+		for param in params
+		for key, value in param.split("=", maxsplit=1)
+	}
+
+
 class ReadStream:
 	"""
 	A readable stream for response bodies
@@ -254,6 +264,21 @@ class Response:
 			msg = "Set-Cookie fields cannot be accessed as a single field; use get_fields()"
 			raise ValueError(msg)
 		return ", ".join(val.decode("utf-8") for val in self.get_fields(name))
+
+	def _each_field(self, name: str) -> Iterator[bytes]:
+		# Return a generator yielding each instance of a field, split on commas; may have
+		# surrounding spaces
+		return (inst.strip() for value in self.get_fields(name) for inst in value.split(b","))
+
+	def link(self, rel: str) -> str | None:
+		"""
+		Return a Link field with the given "rel" attribute, if any
+		"""
+		for link in self._each_field("link"):
+			url, params = _parse_field(link)
+			if params.get("rel") == rel:
+				return url.lstrip("<").rstrip(">")
+		return None
 
 	def get_redirect(self) -> str | None:
 		"""
