@@ -31,7 +31,7 @@ class BasicAuth:
 		self.username = username
 		self.password = password
 
-	async def prepare_request(self, request: Request, /) -> None:
+	async def prepare_request(self, request: Request[ResponseT], /) -> None:
 		"""
 		Insert a basic authentication header into a request
 		"""
@@ -39,8 +39,7 @@ class BasicAuth:
 		val = b"Basic " + encode(val, "base64").strip()
 		request.headers.append(encode_header(b"Authorization", val))
 
-	@staticmethod
-	async def process_response(_: Request[ResponseT], response: ResponseT, /) -> ResponseT:
+	async def process_response(self, _: Request[ResponseT], response: ResponseT, /) -> ResponseT:
 		"""
 		Process a response
 		"""
@@ -60,15 +59,14 @@ class BearerTokenAuth:
 	def __init__(self, token: bytes|str) -> None:
 		self.token = token.encode("ascii") if isinstance(token, str) else token
 
-	async def prepare_request(self, request: Request, /) -> None:
+	async def prepare_request(self, request: Request[ResponseT], /) -> None:
 		"""
 		Insert a bearer token authentication header into a request
 		"""
 		val = b"Bearer " + self.token
 		request.headers.append(encode_header(b"Authorization", val))
 
-	@staticmethod
-	async def process_response(_: Request[ResponseT], response: ResponseT, /) -> ResponseT:
+	async def process_response(self, _: Request[ResponseT], response: ResponseT, /) -> ResponseT:
 		"""
 		Process a response
 		"""
@@ -91,14 +89,13 @@ class ClientCertificateAuth:
 	) -> None:
 		self.certificate = certificate
 
-	async def prepare_request(self, request: Request, /) -> None:
+	async def prepare_request(self, request: Request[ResponseT], /) -> None:
 		"""
 		Add a client certificate to a request
 		"""
 		request.certificate = self.certificate
 
-	@staticmethod
-	async def process_response(_: Request[ResponseT], response: ResponseT, /) -> ResponseT:
+	async def process_response(self, _: Request[ResponseT], response: ResponseT, /) -> ResponseT:
 		"""
 		Process a response
 		"""

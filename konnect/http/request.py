@@ -114,7 +114,7 @@ class Hook(Protocol):
 	Abstract definition of request and response hooks
 	"""
 
-	async def prepare_request(self, request: Request, /) -> None:
+	async def prepare_request(self, request: Request[ResponseT], /) -> None:
 		"""
 		Process a request instance before the request is enacted
 
@@ -147,7 +147,7 @@ class Request(Generic[ResponseT]):
 
 	def __init__(
 		self,
-		session: Session,
+		session: Session[ResponseT],
 		method: Method,
 		url: str,
 		*,
@@ -171,7 +171,7 @@ class Request(Generic[ResponseT]):
 		return f"<Request {self.method.name} {self.url}>"
 
 	@property
-	def session(self) -> Session:
+	def session(self) -> Session[ResponseT]:
 		"""
 		The session to use with this request
 		"""
