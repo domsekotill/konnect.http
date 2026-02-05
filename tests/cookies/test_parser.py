@@ -1,8 +1,9 @@
-# Copyright 2023, 2025  Dom Sekotill <dom.sekotill@kodo.org.uk>
+# Copyright 2023, 2025-2026  Dom Sekotill <dom.sekotill@kodo.org.uk>
 
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
+from typing import TypeAlias
 from unittest import TestCase
 
 from konnect.http.cookies.set_cookie_parser import TokenType
@@ -10,7 +11,11 @@ from konnect.http.cookies.set_cookie_parser import tokenise
 
 from ..checks import check_exc
 
-GOOD_VALS = [
+GoodVal: TypeAlias = tuple[
+	bytes, dict[TokenType, str | bytes | bool | datetime | timedelta]
+]
+
+GOOD_VALS: list[GoodVal] = [
 	(
 		b"Set-Cookie: cookie=choc,choc-chip",
 		{TokenType.NAME: "cookie", TokenType.VALUE: b"choc,choc-chip"},
@@ -132,6 +137,6 @@ class Tests(TestCase):
 		for header, mesg in BAD_VALS:
 			with self.subTest(message=mesg):
 				with self.assertRaises(ValueError) as cm:
-					[*tokenise(header)]
+					_ = [*tokenise(header)]
 
 				check_exc(cm.exception, mesg)

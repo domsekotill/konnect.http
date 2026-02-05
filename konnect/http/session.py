@@ -59,9 +59,6 @@ class Session(Generic[ResponseT]):
 	# TODO(dom): proxies
 	# https://code.kodo.org.uk/konnect/konnect.http/-/issues/12
 
-	def __init_subclass__(cls, *, request_class: type[Request] = Request) -> None:
-		cls.default_request_class = request_class
-
 	def __init__(
 		self, *,
 		multi: Multi|None = None,

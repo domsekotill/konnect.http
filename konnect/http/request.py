@@ -274,6 +274,8 @@ class Request(Generic[ResponseT]):
 					warn(msg, stacklevel=2)
 				case HTTPStatus.FOUND | HTTPStatus.SEE_OTHER:
 					method = Method.HEAD if method is Method.HEAD else Method.GET
+				case _:
+					pass
 			response = await self.copy(url=redirect, method=method).get_response()
 			response.previous = previous
 		return response
@@ -345,6 +347,8 @@ class CurlHandle(Generic[ResponseT]):
 		handle.setopt(URL, url)
 
 		match self.request.method:
+			case Method.GET:
+				pass
 			case Method.HEAD:
 				handle.setopt(NOBODY, True)
 			case Method.PUT:
@@ -370,7 +374,7 @@ class CurlHandle(Generic[ResponseT]):
 				handle.setopt(UNIX_SOCKET_PATH, path.as_posix())
 			case [(IPv4Address() | IPv6Address() | str()) as host, int(port)]:
 				handle.setopt(CONNECT_TO, [f"::{host}:{port}"])
-			case transport:
+			case transport:  # type: ignore[reportUnnecessaryComparison]
 				raise TypeError(f"Unknown transport: {transport!r}")
 
 		handle.setopt(COOKIE, self.get_cookies())
@@ -425,7 +429,8 @@ class CurlHandle(Generic[ResponseT]):
 				return self._response.code >= 200
 			case Phase.READ_BODY:
 				return self._data != b""
-		return False
+			case _:
+				return False
 
 	def get_update(self) -> BodySendStream | ResponseT | bytes | None:
 		"""

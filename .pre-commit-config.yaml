@@ -86,6 +86,7 @@ repos:
     additional_dependencies: &deps
     - anyio
     - kodo.quantities
+    - pytest-asyncio
     - types-konnect.curl ~=0.2.3
     - types-pycurl
   - id: pyright

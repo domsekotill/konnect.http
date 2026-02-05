@@ -40,7 +40,9 @@ ignore-init = true
 [tool.pyright]
 pythonVersion = "3.11"
 include = ["konnect", "tests"]
+typeCheckingMode = "strict"
 reportMissingModuleSource = false
+reportWildcardImportFromLibrary = "warning"
 
 
 [tool.coverage.run]
