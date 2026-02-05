@@ -15,6 +15,7 @@ from asyncio import LimitOverrunError
 from http import HTTPStatus
 from itertools import chain
 from typing import TYPE_CHECKING
+from typing import Generic
 from urllib.parse import urljoin
 
 from anyio import EndOfStream
@@ -25,10 +26,14 @@ if TYPE_CHECKING:
 	from collections.abc import Callable
 	from collections.abc import Iterator
 	from typing import ParamSpec
+	from typing import Self
+	from typing import TypeVar
 
 	from .request import CurlHandle
 
 	P = ParamSpec("P")
+
+	ResponseT_co = TypeVar("ResponseT_co", bound=Response, covariant=True)
 
 REDIRECT_CODES = [
 	HTTPStatus.MOVED_PERMANENTLY,
@@ -59,7 +64,7 @@ def _parse_field(field: bytes) -> tuple[str, dict[str, str]]:
 	}
 
 
-class ReadStream:
+class ReadStream(Generic[ResponseT_co]):
 	"""
 	A readable stream for response bodies
 
@@ -68,9 +73,9 @@ class ReadStream:
 	require either of those interfaces, regardless of the actual async runtime used.
 	"""
 
-	def __init__(self, handle: CurlHandle) -> None:
+	def __init__(self, handle: CurlHandle[ResponseT_co]) -> None:
 		self.request = handle.request
-		self._handle: CurlHandle | None = handle
+		self._handle: CurlHandle[ResponseT_co] | None = handle
 		self._buffer = b""
 
 	async def __aiter__(self) -> AsyncIterator[bytes]:
@@ -216,7 +221,7 @@ class Response:
 	A class for response details, and header and body accessors
 	"""
 
-	def __init__(self, response: str, stream: ReadStream) -> None:
+	def __init__(self, response: str, stream: ReadStream[Self]) -> None:
 		match response.split(maxsplit=2):
 			case [version, response, status]:
 				self.version = version

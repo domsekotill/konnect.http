@@ -8,6 +8,7 @@ Each handler implements `konnect.http.request.Hook`.
 
 from codecs import encode
 from http import HTTPStatus
+from typing import Generic
 
 from konnect.curl.certificates import CertificateSource
 from konnect.curl.certificates import CommonEncodedSource
@@ -19,7 +20,7 @@ from .request import ResponseT
 from .request import encode_header
 
 
-class BasicAuth:
+class BasicAuth(Generic[ResponseT]):
 	"""
 	Provide user authentication credentials with requests
 
@@ -48,7 +49,7 @@ class BasicAuth:
 		return response
 
 
-class BearerTokenAuth:
+class BearerTokenAuth(Generic[ResponseT]):
 	"""
 	Provide a client authentication token with requests
 
@@ -75,7 +76,7 @@ class BearerTokenAuth:
 		return response
 
 
-class ClientCertificateAuth:
+class ClientCertificateAuth(Generic[ResponseT]):
 	"""
 	Provide an X.509 certificate when negotiating TLS connections
 

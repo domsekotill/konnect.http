@@ -109,7 +109,7 @@ class Phase(Enum):
 	READ_TRAILERS = auto()
 
 
-class Hook(Protocol):
+class Hook(Protocol[ResponseT]):
 	"""
 	Abstract definition of request and response hooks
 	"""
@@ -226,7 +226,7 @@ class Request(Generic[ResponseT]):
 		)
 		self._headers.append(header)
 
-	def set_auth_handler(self, handler: Hook) -> None:
+	def set_auth_handler(self, handler: Hook[ResponseT]) -> None:
 		"""
 		Add an authentication handler to a request
 		"""
@@ -606,7 +606,7 @@ class CurlHandle(Generic[ResponseT]):
 			if check_cookie(cookie, self.request.url)
 		)
 
-	def get_hooks(self) -> Iterator[Hook]:
+	def get_hooks(self) -> Iterator[Hook[ResponseT]]:
 		if hook := self.request.auth_hook:
 			yield hook
 		yield from self.request.session.hooks
@@ -636,9 +636,9 @@ def get_transport(
 
 
 def get_authenticator(
-	authenticators: Mapping[ServiceIdentifier, Hook],
+	authenticators: Mapping[ServiceIdentifier, Hook[ResponseT]],
 	url: str,
-) -> Hook | None:
+) -> Hook[ResponseT] | None:
 	"""
 	For a given http:// or https:// URL, return any authentication `Hook` associated with it
 	"""

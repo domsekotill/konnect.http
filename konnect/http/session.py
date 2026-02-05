@@ -72,8 +72,8 @@ class Session(Generic[ResponseT]):
 		self.timeout: Quantity[Time] = 0 @ SECONDS
 		self.connect_timeout: Quantity[Time] = 300 @ SECONDS
 		self.transports = dict[ServiceIdentifier, TransportInfo]()
-		self.auth = dict[ServiceIdentifier, Hook]()
-		self.hooks = list[Hook]()
+		self.auth = dict[ServiceIdentifier, Hook[ResponseT]]()
+		self.hooks = list[Hook[ResponseT]]()
 		self.cookies = set[Cookie]()
 		self.user_agent: str|None = None
 		self.ca_certificates = discover_ca_certs()
@@ -163,7 +163,7 @@ class Session(Generic[ResponseT]):
 			raise UnsupportedSchemeError(url)
 		del self.transports[parts.scheme, parts.netloc]  # type: ignore[arg-type]
 
-	def add_authentication(self, url: str, authenticator: Hook) -> None:
+	def add_authentication(self, url: str, authenticator: Hook[ResponseT]) -> None:
 		"""
 		Add an authentication handler to use when accessing URLs under the given URL base
 
