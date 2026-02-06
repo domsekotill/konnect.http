@@ -12,6 +12,8 @@ require users to interact directly with the classes supplied in this module.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from enum import Enum
 from enum import Flag
 from enum import auto
@@ -232,22 +234,22 @@ class Request(Generic[ResponseT]):
 		"""
 		self.auth_hook = handler
 
-	async def body(self) -> BodySendStream:
+	@asynccontextmanager
+	async def body(self) -> AsyncIterator[BodySendStream]:
 		"""
-		Return a writable object that can be used as an async context manager
-
-		For example (note `async with await` to get a stream and use it as a context):
+		Return an async context manager that provides a writable object on entry
 
 		>>> async def put_httpbin(session: Session) -> Response:
 		...     req = Request(session, Method.PUT, "https://httpbin.org/put")
-		...     async with await req.body() as stream:
+		...     async with req.body() as stream:
 		...         await stream.send(b"...")
 		...     return await req.get_response()
 		"""
 		if self._handle is None:
 			msg = f"{type(self)}.body() cannot be called after {type(self)}.get_response()"
 			raise RuntimeError(msg)
-		return await self._handle.get_writer()
+		yield (stream := await self._handle.get_writer())
+		await stream.aclose()
 
 	async def get_response(self, *, follow_redirects: bool = False) -> ResponseT:
 		"""
@@ -292,13 +294,6 @@ class BodySendStream:
 
 	def __init__(self, writefn: Callable[[bytes], Awaitable[None]]) -> None:
 		self._write = writefn
-
-	async def __aenter__(self) -> Self:
-		return self
-
-	async def __aexit__(self, exc_type: type[Exception]|None, *excinfo: object) -> None:
-		if exc_type is None:
-			await self._write(b"")
 
 	async def aclose(self) -> None:
 		"""
