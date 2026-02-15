@@ -16,6 +16,7 @@ from http import HTTPStatus
 from itertools import chain
 from typing import TYPE_CHECKING
 from typing import Generic
+from typing import TypeVar
 from urllib.parse import urljoin
 
 from anyio import EndOfStream
@@ -27,13 +28,12 @@ if TYPE_CHECKING:
 	from collections.abc import Iterator
 	from typing import ParamSpec
 	from typing import Self
-	from typing import TypeVar
 
 	from .request import CurlHandle
 
 	P = ParamSpec("P")
 
-	ResponseT_co = TypeVar("ResponseT_co", bound=Response, covariant=True)
+ResponseT_co = TypeVar("ResponseT_co", bound="Response", covariant=True)
 
 REDIRECT_CODES = [
 	HTTPStatus.MOVED_PERMANENTLY,
