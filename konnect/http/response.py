@@ -59,8 +59,7 @@ def _parse_field(field: bytes) -> tuple[str, dict[str, str]]:
 	item, *params = field.decode("utf-8").split(";")
 	return item, {
 		key.lstrip(): value.rstrip()
-		for param in params
-		for key, value in param.split("=", maxsplit=1)
+		for key, _, value in (param.partition("=") for param in params)
 	}
 
 
