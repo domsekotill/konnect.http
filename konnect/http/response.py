@@ -112,9 +112,9 @@ class ReadStream(Generic[ResponseT_co]):
 
 		Implements `anyio.abc.ByteReceiveStream.receive()`
 		"""
-		data = await self._receive()
 		if max_bytes == 0:
 			return b""
+		data = await self._receive()
 		if max_bytes > 0:
 			data, self._buffer = data[:max_bytes], data[max_bytes:]
 		return data
