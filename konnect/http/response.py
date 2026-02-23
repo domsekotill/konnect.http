@@ -16,6 +16,7 @@ from http import HTTPStatus
 from itertools import chain
 from typing import TYPE_CHECKING
 from typing import Generic
+from typing import NamedTuple
 from typing import TypeVar
 from urllib.parse import urljoin
 
@@ -61,6 +62,16 @@ def _parse_field(field: bytes) -> tuple[str, dict[str, str]]:
 		key.lstrip(): value.rstrip().strip('"')
 		for key, _, value in (param.partition("=") for param in params)
 	}
+
+
+class ContentType(NamedTuple):
+	"""
+	A parsed Content-Type field
+	"""
+
+	media_type: str
+	charset: str
+	boundary: str | None
 
 
 class ReadStream(Generic[ResponseT_co]):
@@ -273,6 +284,13 @@ class Response:
 		# Return a generator yielding each instance of a field, split on commas; may have
 		# surrounding spaces
 		return (inst.strip() for value in self.get_fields(name) for inst in value.split(b","))
+
+	def content_type(self) -> ContentType:
+		"""
+		Return a parsed Content-Type field
+		"""
+		media_type, params = _parse_field(next(self.get_fields("content-type")))
+		return ContentType(media_type=media_type, charset=params.get("charset", "us-ascii").lower(), boundary=params.get("boundary"))
 
 	def link(self, rel: str) -> str | None:
 		"""
