@@ -58,7 +58,7 @@ def _parse_field(field: bytes) -> tuple[str, dict[str, str]]:
 	# Return an item and parameters as a dict
 	item, *params = field.decode("utf-8").split(";")
 	return item, {
-		key.lstrip(): value.rstrip()
+		key.lstrip(): value.rstrip().strip('"')
 		for key, _, value in (param.partition("=") for param in params)
 	}
 
@@ -281,7 +281,7 @@ class Response:
 		for link in self._each_field("link"):
 			url, params = _parse_field(link)
 			if params.get("rel") == rel:
-				return url.lstrip("<").rstrip(">")
+				return urljoin(self.request.url, url.lstrip("<").rstrip(">"))
 		return None
 
 	def get_redirect(self) -> str | None:
