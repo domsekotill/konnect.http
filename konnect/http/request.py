@@ -494,7 +494,7 @@ class CurlHandle(Generic[ResponseT]):
 		assert val is None, val
 
 	def _process_input(self, size: int) -> bytes|int:
-		if self._phase == Phase.WRITE_HEADERS:
+		if self._phase in (Phase.WRITE_HEADERS, Phase.WRITE_BODY_AWAIT):
 			if not self._data:
 				self._phase = Phase.WRITE_BODY_AWAIT
 				return READFUNC_PAUSE
@@ -515,7 +515,9 @@ class CurlHandle(Generic[ResponseT]):
 		assert self._response is not None
 		if data == b"\r\n":
 			assert self._phase == Phase.READ_HEADERS, self._phase
-			self._phase = Phase.WRITE_HEADERS if self._response.code == 100 else Phase.READ_BODY_AWAIT
+			self._phase = (
+				Phase.WRITE_BODY_AWAIT if self._response.code == 100 else Phase.READ_BODY_AWAIT
+			)
 			return
 		field = self._split_field(data)
 		match self._phase:
