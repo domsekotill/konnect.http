@@ -444,6 +444,7 @@ class CurlHandle(Generic[ResponseT]):
 		if self._phase == Phase.WRITE_BODY:
 			# No response in particular is needed after the buffer is drained, just an
 			# interrupt.
+			assert self._sentall
 			return None
 		if self._phase == Phase.READ_BODY_AWAIT:
 			self._phase = Phase.READ_BODY
@@ -465,7 +466,7 @@ class CurlHandle(Generic[ResponseT]):
 		if self._phase == Phase.READ_TRAILERS:
 			assert self._data == b""
 			return b""
-		assert self._phase == Phase.READ_BODY
+		assert self._phase == Phase.READ_BODY, (self._phase, self._response)
 		data, self._data = self._data, b""
 		return data
 
@@ -475,6 +476,7 @@ class CurlHandle(Generic[ResponseT]):
 
 		Signal an EOF by writing b""
 		"""
+		assert self._phase == Phase.WRITE_BODY, self._phase
 		if data == b"":
 			self._upcomplete = True
 			if self._handle:
@@ -487,6 +489,7 @@ class CurlHandle(Generic[ResponseT]):
 				await self._update_send_state()
 
 	async def _update_send_state(self) -> None:
+		assert self._phase == Phase.WRITE_BODY, (self._phase, self._response)
 		assert self._handle is not None
 		self._sentall = False
 		self._handle.pause(PAUSE_CONT)
@@ -494,12 +497,15 @@ class CurlHandle(Generic[ResponseT]):
 		assert val is None, val
 
 	def _process_input(self, size: int) -> bytes|int:
+		assert self._phase in (Phase.WRITE_HEADERS, Phase.WRITE_BODY_AWAIT, Phase.WRITE_BODY), (
+			self._phase, self._response
+		)
 		if self._phase in (Phase.WRITE_HEADERS, Phase.WRITE_BODY_AWAIT):
 			if not self._data:
 				self._phase = Phase.WRITE_BODY_AWAIT
 				return READFUNC_PAUSE
 			self._phase = Phase.WRITE_BODY
-		assert self._phase == Phase.WRITE_BODY, self._phase
+		assert self._phase == Phase.WRITE_BODY, (self._phase, self._response)
 		if not self._data:
 			self._sentall = True
 			return b"" if self._upcomplete else READFUNC_PAUSE
@@ -514,7 +520,7 @@ class CurlHandle(Generic[ResponseT]):
 			return
 		assert self._response is not None
 		if data == b"\r\n":
-			assert self._phase == Phase.READ_HEADERS, self._phase
+			assert self._phase == Phase.READ_HEADERS, (self._phase, self._response)
 			self._phase = (
 				Phase.WRITE_BODY_AWAIT if self._response.code == 100 else Phase.READ_BODY_AWAIT
 			)
@@ -583,7 +589,7 @@ class CurlHandle(Generic[ResponseT]):
 			warn(msg, stacklevel=3)
 			await resp.aclose()
 			resp = await self.request.session.multi.process(self)
-		assert isinstance(resp, Response)
+		assert isinstance(resp, Response), (self._phase, resp)
 		for hook in self.get_hooks():
 			resp = await hook.process_response(self.request, resp)
 		return resp
