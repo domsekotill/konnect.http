@@ -17,6 +17,7 @@ HTTP method), and awaiting a response from them.
 """
 
 from copy import copy
+from pathlib import Path
 from typing import Generic
 from typing import Self
 from urllib.parse import urlparse
@@ -25,6 +26,7 @@ from kodo.quantities import Quantity
 from konnect.curl import SECONDS
 from konnect.curl import Multi
 from konnect.curl import Time
+from konnect.curl.certificates import CertificateSource
 
 from .certificates import discover_ca_certs
 from .cookies import Cookie
@@ -73,7 +75,7 @@ class Session(Generic[ResponseT]):
 		self.hooks = list[Hook[ResponseT]]()
 		self.cookies = set[Cookie]()
 		self.user_agent: str|None = None
-		self.ca_certificates = discover_ca_certs()
+		self.ca_certificates: CertificateSource | Path | None = discover_ca_certs()
 
 	async def __aenter__(self) -> Self:
 		# For future use; likely downloading PAC files if used for proxies
