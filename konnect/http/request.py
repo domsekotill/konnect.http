@@ -438,7 +438,6 @@ class CurlHandle(Generic[ResponseT]):
 		if self._phase == Phase.WRITE_BODY_AWAIT:
 			# First input callback call, subsequent calls can return request body data;
 			# self._stream better be set, 'cos a BodySendStream is needed.
-			self._phase = Phase.WRITE_BODY
 			assert self._stream is not None, "input stream missing when input callback called"
 			return self._stream
 		if self._phase == Phase.WRITE_BODY:
@@ -447,7 +446,6 @@ class CurlHandle(Generic[ResponseT]):
 			assert self._sentall
 			return None
 		if self._phase == Phase.READ_BODY_AWAIT:
-			self._phase = Phase.READ_BODY
 			assert self._response is not None
 			if self._response.code < 200:
 				raise LookupError
@@ -476,7 +474,11 @@ class CurlHandle(Generic[ResponseT]):
 
 		Signal an EOF by writing b""
 		"""
-		assert self._phase == Phase.WRITE_BODY, self._phase
+		if self._phase != Phase.WRITE_BODY:
+			assert self._response is not None, (
+				"CurlHandle.write() called during wrong phase without an early response sent"
+			)
+			return
 		if data == b"":
 			self._upcomplete = True
 			if self._handle:
@@ -485,7 +487,7 @@ class CurlHandle(Generic[ResponseT]):
 			return
 		self._data += data
 		if self._handle:
-			while self._data:
+			while self._data and self._phase == Phase.WRITE_BODY:
 				await self._update_send_state()
 
 	async def _update_send_state(self) -> None:
@@ -493,8 +495,7 @@ class CurlHandle(Generic[ResponseT]):
 		assert self._handle is not None
 		self._sentall = False
 		self._handle.pause(PAUSE_CONT)
-		val = await self.request.session.multi.process(self)
-		assert val is None, val
+		await self.request.session.multi.process(self)
 
 	def _process_input(self, size: int) -> bytes|int:
 		assert self._phase in (Phase.WRITE_HEADERS, Phase.WRITE_BODY_AWAIT, Phase.WRITE_BODY), (
@@ -521,9 +522,11 @@ class CurlHandle(Generic[ResponseT]):
 		assert self._response is not None
 		if data == b"\r\n":
 			assert self._phase == Phase.READ_HEADERS, (self._phase, self._response)
-			self._phase = (
-				Phase.WRITE_BODY_AWAIT if self._response.code == 100 else Phase.READ_BODY_AWAIT
-			)
+			if self._response.code == 100:
+				self._response = None
+				self._phase = Phase.WRITE_BODY_AWAIT
+			else:
+				self._phase = Phase.READ_BODY_AWAIT
 			return
 		field = self._split_field(data)
 		match self._phase:
@@ -570,29 +573,34 @@ class CurlHandle(Generic[ResponseT]):
 		if not isinstance(stream, BodySendStream):
 			msg = f"requests of type {self.request.method} do not support sending body data"
 			raise ValueError(msg)
+		self._phase = Phase.WRITE_BODY
 		return stream
 
 	async def get_response(self) -> ResponseT:
 		"""
 		Progress the request far enough to create a `Response` object and return it
 		"""
-		# Having the if-else condition this way around makes type checking easier
-		if self._phase != Phase.INITIAL:
-			resp = await self.request.session.multi.process(self)
-		else:
-			resp = await self._start_request()
-		if isinstance(resp, BodySendStream):
-			msg = (
-				f"uploading an empty body with a {self.request.method} request, "
-				f"did you mean to use Request.body() to get a BodySendStream?"
-			)
-			warn(msg, stacklevel=3)
-			await resp.aclose()
-			resp = await self.request.session.multi.process(self)
-		assert isinstance(resp, Response), (self._phase, resp)
+		if self._response is None:
+			# Having the if-else condition this way around makes type checking easier
+			if self._phase != Phase.INITIAL:
+				resp = await self.request.session.multi.process(self)
+			else:
+				resp = await self._start_request()
+			if isinstance(resp, BodySendStream):
+				msg = (
+					f"uploading an empty body with a {self.request.method} request, "
+					f"did you mean to use Request.body() to get a BodySendStream?"
+				)
+				warn(msg, stacklevel=3)
+				await resp.aclose()
+				resp = await self.request.session.multi.process(self)
+			assert isinstance(resp, Response), (self._phase, resp)
+			assert self._response is not None
+		self._phase = Phase.READ_BODY
+		response = self._response
 		for hook in self.get_hooks():
-			resp = await hook.process_response(self.request, resp)
-		return resp
+			response = await hook.process_response(self.request, response)
+		return response
 
 	async def get_data(self) -> bytes:
 		"""
