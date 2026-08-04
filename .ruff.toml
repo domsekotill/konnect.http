@@ -61,6 +61,11 @@ select = [
 	# The bulk of bugbear's checks are useful
 	"B0",
 
+	# flake8-commas
+
+	# The only one which works with the formatter
+	"COM818",
+
 	# Various others
 	# --------------
 
