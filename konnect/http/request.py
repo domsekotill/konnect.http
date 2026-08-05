@@ -12,7 +12,7 @@ require users to interact directly with the classes supplied in this module.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from enum import Enum
 from enum import Flag
@@ -235,7 +235,7 @@ class Request(Generic[ResponseT]):
 		self.auth_hook = handler
 
 	@asynccontextmanager
-	async def body(self) -> AsyncIterator[BodySendStream]:
+	async def body(self) -> AsyncGenerator[BodySendStream]:
 		"""
 		Return an async context manager that provides a writable object on entry
 
